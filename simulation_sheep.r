@@ -1,4 +1,5 @@
 # Long-term selection in dairy ovine (Founders/Burn-in)
+# for one trait: Milk Yield
 # Simona Antonios
 # source('simulation_sheep.r',echo=T)
 
@@ -21,32 +22,26 @@ sourceFunctions() # to ensure we have the latest version
 
 # ---- Global parameters ----
 
-nFemalesInLactation = 66600                                                        # no. of Females in the population
-nEwes               = 80000                                                        # no. of Ewes in the population (the ones that have a successful lactation)
+nFemalesInLactation = 66600                                                        # no. of Females that are in lactation in the population
 nEliteEwes          = 6000
 nDamsOfFemales      = 60600
-# nLact1              = trunc(0.30 * nFemalesInLactation)                          # no. of Ewes in lactation 1
-# nLact2              = trunc(0.28 * nFemalesInLactation)                          # no. of Ewes in lactation 2
-# nLact3              = trunc(0.24 * nFemalesInLactation)                          # no. of Ewes in lactation 3
-# nLact4              = trunc(0.18 * nFemalesInLactation)                          # no. of Ewes in lactation 4
-# nLact5              = nFemalesInLactation - sum(nLact1, nLact2, nLact3, nLact4)  # no. of Ewes in lactation 5
-nLact1              = 0.23 * nEliteEwes + 0.3 * nDamsOfFemales                     # no. of Ewes in lactation 1
-nLact2              = 0.35 * nEliteEwes + 0.28 * nDamsOfFemales                    # no. of Ewes in lactation 2
-nLact3              = 0.26 * nEliteEwes + 0.24 * nDamsOfFemales                    # no. of Ewes in lactation 3
-nLact4              = 0.16 * nEliteEwes + 0.18 * nDamsOfFemales                    # no. of Ewes in lactation 4
+nLact1              = round(0.23 * nEliteEwes) + round(0.3 * nDamsOfFemales)       # no. of Ewes in lactation 1
+nLact2              = round(0.35 * nEliteEwes) + 0.28 * round(nDamsOfFemales)      # no. of Ewes in lactation 2
+nLact3              = round(0.26 * nEliteEwes) + 0.24 * round(nDamsOfFemales)      # no. of Ewes in lactation 3
+nLact4              = round(0.16 * nEliteEwes) + 0.18 * round(nDamsOfFemales)      # no. of Ewes in lactation 4
 nLambs              = trunc(((0.9 * 1.4 * 0.75 + 0.6 * 1.6 * 0.75))*nEwes/2)       # no. of Lamb, (1.5 prolificity rate, fertility rate of 0.6, and survival rate is of 0.7))
 nYngFemales         = 0.48 * nLambs                                                # no. of successful born Lambs
-nYngRams            = 900                                                          # no. of young Rams for PT schemen
-nwtRams1            = 150                                                          # no. of young Rams for PT scheme
-nEliteSires1        = 10                                                           # no. of elite sires selected every year
-nEliteSires2        = 10                                                           # no. of elite sires selected every year
-nEliteSires3        = 10                                                           # no. of elite sires selected every year
+nYngRams            = 900                                                          # no. of young Rams for PT scheme
+nWtRams1            = 150                                                          # no. of waiting Rams for PT scheme
+nEliteSires1        = 10                                                           # no. of elite sires selected every year (for the first year of AI)
+nEliteSires2        = 10                                                           # no. of elite sires selected every year (for the second year of AI)
+nEliteSires3        = 10                                                           # no. of elite sires selected every year (for the third year of AI)
 nSiresOfFemales1    = 55                                                           # no. of elite sires of dams selected every year
 nSiresOfFemales2    = 55                                                           # no. of elite sires of dams selected every year
 nSiresOfFemales3    = 55                                                           # no. of elite sires of dams selected every year
 nNaturalMatingRams  = 1000                                                         # no. of NM sires selected every year
 startYear           = 1980                                                         # start year of the simulations
-nHerds              = 210                                                          # number of herds
+nHerds              = 237                                                          # number of herds
 meanHerdSize        = 350                                                          # average herd size
 sdHerdSize          = 129                                                          # sd of herd size
 BaseNe              = 150                                                          # effective population size
@@ -58,7 +53,7 @@ nSNPPerChr          = 4000                                                      
 RecRate             = 1.5e-8                                                       # Recombination rate
 MutRate             = 1.5e-8                                                       # Mutation rate
 nPTyrs              = 20                                                           # no. of progeny test years
-nTraits             = 1                                                            # no. of traits
+nTraits             = 1                                                            # no. of traits (Milk Yield)
 
 # Trait parameters:     
 Addh2               = 0.34                                                         # heritability 
@@ -77,17 +72,10 @@ meanLac3            = 207                                                       
 meanLac4            = 203                                                          # Mean of milk yield in Lactation 4
 
 nonAddVar           = phenVar - addVar                                             # reduce additive variance from Phenotypic variance for non additive effects
-#hylVar              = 7354984                                                      # herd-year-numberOfLactation variance (split into 3 sources)
-trtMean             = 208                                                          # trait mean value 
+trtMean             = 198                                                          # trait mean value 
 trtStDev            = 83                                                           # trait standard deviation value 
-trtVar              = 6041                                                         # trait variance
-# GenCor            = matrix(c(1.00, ??, ??, 1.00), 2, 2)
-# iweight           = c(??, ??)
+trtVar              = 7000                                                         # trait variance
 
-#i can leave only one component
-# yearVar            = hyVar / 3                                                   # year variance
-# herdVar            = hyVar / 3                                                   # herd variance
-# herdYearVar        = hyVar / 3                                                   # herd/year covariance !!!
 
 #Trait distribution
 # Min.   : 10.05 
@@ -169,7 +157,7 @@ herds = list(
 
 yearEffect = sampleYearEffect()
 
-# ------------------------------------- Burn-in --------------------------------------
+# ------------------------------------- Fill-in --------------------------------------
 
 year = 0
 
@@ -181,7 +169,6 @@ basePop = newPop(founderPop)
 
 # Elite Rams
 # ... elite Rams in the 3rd year in service
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
 eliteSires3 = randCross(pop = basePop, nCrosses = 10 * nEliteSires3)
 eliteSires3 = selectWithinFam(pop = eliteSires3, nInd = 1, use = "rand", famType = "M")
 eliteSires3@sex[] = "M"
@@ -189,7 +176,6 @@ eliteSires3@father[] = "0"
 eliteSires3@mother[] = "0"
 eliteSires3 = fillInMisc(pop = eliteSires3, year = startYear - 4.5)
 # ... elite Rams in the 2nd year in service
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
 eliteSires2 = randCross(pop = basePop, nCrosses = 10 * nEliteSires2)
 eliteSires2 = selectWithinFam(pop = eliteSires2, nInd = 1, use = "rand", famType = "M")
 eliteSires2@sex[] = "M"
@@ -197,7 +183,6 @@ eliteSires2@father[] = "0"
 eliteSires2@mother[] = "0"
 eliteSires2 = fillInMisc(pop = eliteSires2, year = startYear - 3.5)
 # ... elite Rams in the 1st year in service
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
 eliteSires1 = randCross(pop = basePop, nCrosses = 10 * nEliteSires1)
 eliteSires1 = selectWithinFam(pop = eliteSires1, nInd = 1, use = "rand", famType = "M")
 eliteSires1@sex[] = "M"
@@ -208,7 +193,6 @@ eliteSires = c(eliteSires3, eliteSires2, eliteSires1) # this is correct, they ar
 
 #Rams of dams (AI)
 # ... elite Rams in the 3rd year in service
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
 SiresOfFemales3 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales3)
 SiresOfFemales3 = selectWithinFam(pop = SiresOfFemales3, nInd = 1, use = "rand", famType = "M")
 SiresOfFemales3@sex[] = "M"
@@ -216,7 +200,6 @@ SiresOfFemales3@father[] = "0"
 SiresOfFemales3@mother[] = "0"
 SiresOfFemales3 = fillInMisc(pop = SiresOfFemales3, year = startYear - 4.5)
 # ... elite Rams in the 2nd year in service
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
 SiresOfFemales2 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales2)
 SiresOfFemales2 = selectWithinFam(pop = SiresOfFemales2, nInd = 1, use = "rand", famType = "M")
 SiresOfFemales2@sex[] = "M"
@@ -224,7 +207,6 @@ SiresOfFemales2@father[] = "0"
 SiresOfFemales2@mother[] = "0"
 SiresOfFemales2 = fillInMisc(pop = SiresOfFemales2, year = startYear - 3.5)
 # ... elite Rams in the 1st year in service
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
 SiresOfFemales1 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales1)
 SiresOfFemales1 = selectWithinFam(pop = SiresOfFemales1, nInd = 1, use = "rand", famType = "M")
 SiresOfFemales1@sex[] = "M"
@@ -236,16 +218,7 @@ SiresOfFemales = c(SiresOfFemales3, SiresOfFemales2, SiresOfFemales1) # this is 
 
 # Waiting Rams
 # # ... 1.5 years old 
-# !!!!!!! NO NEDD!!!!??????
-# # TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-# wtRams2  = randCross(basePop, nCrosses = nYngRams)
-# wtRams2@sex[] = "M"
-# wtRams2@father[] = "0"
-# wtRams2@mother[] = "0"
-# wtRams2 = fillInMisc(pop = wtRams2, year = startYear - 1.5)
-# ... 0.5 years old
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-wtRams1  = randCross(basePop, nCrosses = nwtRams1)
+wtRams1  = randCross(basePop, nCrosses = nWtRams1)
 wtRams1@sex[] = "M"
 wtRams1@father[] = "0"
 wtRams1@mother[] = "0"
@@ -259,7 +232,6 @@ ntlMatingRams@mother[] = "0"
 ntlMatingRams = fillInMisc(pop = ntlMatingRams, year = startYear - 1.5)
 
 # ... 1/12 year old
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
 yngRams  = randCross(basePop, nCrosses = nYngRams)
 yngRams@sex[] = "M"
 yngRams@father[] = "0"
@@ -267,91 +239,74 @@ yngRams@mother[] = "0"
 yngRams = fillInMisc(pop = yngRams, year = startYear -1/12)
 
 
+
 # ewes
 # Elite
 # ... 4th lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-EliteEwesLact4 = randCross(basePop, nCrosses = round(0.23 * nEliteEwes))
+EliteEwesLact4 = randCross(basePop, nCrosses = round(0.16 * nEliteEwes))
 EliteEwesLact4@sex[] = "F"
 EliteEwesLact4@father[] = "0"
 EliteEwesLact4@mother[] = "0"
 EliteEwesLact4 = fillInMisc(pop = EliteEwesLact4, herds = herds, permEnvVar = permVar,
                            year = startYear - 4)
 # ... 3rd lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-EliteEwesLact3 = randCross(basePop, nCrosses =  round(0.35 * nEliteEwes))
+EliteEwesLact3 = randCross(basePop, nCrosses =  round(0.26 * nEliteEwes))
 EliteEwesLact3@sex[] = "F"
 EliteEwesLact3@father[] = "0"
 EliteEwesLact3@mother[] = "0"
 EliteEwesLact3 = fillInMisc(pop = EliteEwesLact3, herds = herds, permEnvVar = permVar,
                            year = startYear - 3)
 # ... 2nd lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-EliteEwesLact2 = randCross(basePop, nCrosses =  round(0.26 * nEliteEwes))
+EliteEwesLact2 = randCross(basePop, nCrosses =  round(0.35 * nEliteEwes))
 EliteEwesLact2@sex[] = "F"
 EliteEwesLact2@father[] = "0"
 EliteEwesLact2@mother[] = "0"
 EliteEwesLact2 = fillInMisc(pop = EliteEwesLact2, herds = herds, permEnvVar = permVar,
                            year = startYear - 2)
 # ... 1st lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-EliteEwesLact1 = randCross(basePop, nCrosses =  round(0.16 * nEliteEwes))
+EliteEwesLact1 = randCross(basePop, nCrosses =  round(0.23 * nEliteEwes))
 EliteEwesLact1@sex[] = "F"
 EliteEwesLact1@father[] = "0"
 EliteEwesLact1@mother[] = "0"
 EliteEwesLact1 = fillInMisc(pop = EliteEwesLact1, herds = herds, permEnvVar = permVar,
                            year = startYear - 1)
 
-# # ... 5th lactation
-# # TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-# DamofFemalesLactLact5 = randCross(basePop, nCrosses = nLact5)
-# DamofFemalesLact5@sex[] = "F"
-# DamofFemalesLact5@father[] = "0"
-# DamofFemalesLact5@mother[] = "0"
-# DamofFemalesLact5 = fillInMisc(pop = DamofFemalesLact5, herds = herds, permEnvVar = permVar,
-#                        year = startYear - 5)
-
+# Dams of females
 # ... 4th lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-DamofFemalesLact4 = randCross(basePop, nCrosses = round(0.3 * nDamsOfFemales))
+DamofFemalesLact4 = randCross(basePop, nCrosses = round(0.18 * nDamsOfFemales))
 DamofFemalesLact4@sex[] = "F"
 DamofFemalesLact4@father[] = "0"
 DamofFemalesLact4@mother[] = "0"
 DamofFemalesLact4 = fillInMisc(pop = DamofFemalesLact4, herds = herds, permEnvVar = permVar,
                        year = startYear - 4)
 # ... 3rd lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-DamofFemalesLact3 = randCross(basePop, nCrosses = round(0.28 * nDamsOfFemales))
+DamofFemalesLact3 = randCross(basePop, nCrosses = round(0.24 * nDamsOfFemales))
 DamofFemalesLact3@sex[] = "F"
 DamofFemalesLact3@father[] = "0"
 DamofFemalesLact3@mother[] = "0"
 DamofFemalesLact3 = fillInMisc(pop = DamofFemalesLact3, herds = herds, permEnvVar = permVar,
                        year = startYear - 3)
 # ... 2nd lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-DamofFemalesLact2 = randCross(basePop, nCrosses =  round(0.24 * nDamsOfFemales))
+DamofFemalesLact2 = randCross(basePop, nCrosses =  round(0.28 * nDamsOfFemales))
 DamofFemalesLact2@sex[] = "F"
 DamofFemalesLact2@father[] = "0"
 DamofFemalesLact2@mother[] = "0"
 DamofFemalesLact2 = fillInMisc(pop = DamofFemalesLact2, herds = herds, permEnvVar = permVar,
                        year = startYear - 2)
 # ... 1st lactation
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-DamofFemalesLact1 = randCross(basePop, nCrosses =  round(0.18 * nDamsOfFemales))
+DamofFemalesLact1 = randCross(basePop, nCrosses =  round(0.3 * nDamsOfFemales))
 DamofFemalesLact1@sex[] = "F"
 DamofFemalesLact1@father[] = "0"
 DamofFemalesLact1@mother[] = "0"
 DamofFemalesLact1 = fillInMisc(pop = DamofFemalesLact1, herds = herds, permEnvVar = permVar,
                        year = startYear - 1)
-
+                       
 ewesLact1 = c(DamofFemalesLact1, EliteEwesLact1)
 ewesLact2 = c(DamofFemalesLact2, EliteEwesLact2)
 ewesLact3 = c(DamofFemalesLact3, EliteEwesLact3)
 ewesLact4 = c(DamofFemalesLact4, EliteEwesLact4)
 
 # young ewes
-# TODO: Is basePop = newPop(founderPop) and later randCross(basePop) creating a bottleneck?
-# https://github.com/HighlanderLab/aehsani_geno_sim/issues/20
 yngFemales = randCross(basePop, nCrosses = nYngFemales)
 yngFemales@sex[] = "F"
 yngFemales@father[] = "0"
@@ -495,7 +450,7 @@ for (year in yearToDo:nPTyrs) {
   sel1 = lambs@father %in% c(eliteSires@id,SiresOfFemales@id) 
   n = ceiling(nYngRams / length(eliteSires@id))
   eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
-  wtRams1 = selectInd(pop = yngRams, nInd = nwtRams1 ,
+  wtRams1 = selectInd(pop = yngRams, nInd = nWtRams1 ,
                           use = use, trait = 1) # wtRams1 are 1.5 years old here
   yngRams = selectWithinFam(pop = lambs[sel], nInd = n, # yngRams are 0.12 year old here
                              use = use, trait = 1,
@@ -508,10 +463,10 @@ for (year in yearToDo:nPTyrs) {
   # ---- ewes ----
   # ---Elites---
   
-  EliteEwesLact4 = selectInd(ewesLact3, nInd = round(0.23 * nEliteEwes), use = "use") # EliteEwesLact4 are 5 years old here
-  EliteEwesLact3 = selectInd(ewesLact2, nInd = round(0.35 * nEliteEwes), use = "use") # EliteEwesLact3 are 4 years old here
-  EliteEwesLact2 = selectInd(ewesLact1, nInd = round(0.26 * nEliteEwes), use = "use") # EliteEwesLact2 are 3 years old here
-  EliteEwesLact1 = selectInd(lambs[sel1], nInd = round(0.16 * nEliteEwes), use = "use",sex ="F", trait = 1, famType = "M")   # EliteEwesLact1 are 2 years old here
+  EliteEwesLact4 = selectInd(ewesLact3, nInd = round(0.16 * nEliteEwes), use = "ebv") # EliteEwesLact4 are 5 years old here
+  EliteEwesLact3 = selectInd(ewesLact2, nInd = round(0.26 * nEliteEwes), use = "ebv") # EliteEwesLact3 are 4 years old here
+  EliteEwesLact2 = selectInd(ewesLact1, nInd = round(0.35 * nEliteEwes), use = "ebv") # EliteEwesLact2 are 3 years old here
+  EliteEwesLact1 = selectInd(lambs[sel1], nInd = round(0.23 * nEliteEwes), use = "rand",sex ="F", trait = 1, famType = "M")   # EliteEwesLact1 are 2 years old here
 
   # Set phenotypes of the last lactation from the last generation to missing.
   # These are only copied phenotypes from the latest lactation.
@@ -524,10 +479,10 @@ for (year in yearToDo:nPTyrs) {
   EliteEwesLact1@pheno[,c(1:nTraits)] = NA
   
   # ---Dams of Females---
-  DamofFemalesLact4 = selectInd(DamofFemalesLact3, round(0.3 * nDamsOfFemales), use = "rand") # DamofFemalesLact4 are 5 years old here
-  DamofFemalesLact3 = selectInd(DamofFemalesLact2, round(0.28 * nDamsOfFemales), use = "rand") # DamofFemalesLact3 are 4 years old here
-  DamofFemalesLact2 = selectInd(DamofFemalesLact1, round(0.24* nDamsOfFemales), use = "rand") # DamofFemalesLact2 are 3 years old here
-  DamofFemalesLact1 = selectInd(yngFemales, nInd = round(0.18 * nDamsOfFemales), use = "rand") # DamofFemalesLact1 are 2 years old here
+  DamofFemalesLact4 = selectInd(DamofFemalesLact3, round(0.18 * nDamsOfFemales), use = "rand") # DamofFemalesLact4 are 5 years old here
+  DamofFemalesLact3 = selectInd(DamofFemalesLact2, round(0.24 * nDamsOfFemales), use = "rand") # DamofFemalesLact3 are 4 years old here
+  DamofFemalesLact2 = selectInd(DamofFemalesLact1, round(0.28 * nDamsOfFemales), use = "rand") # DamofFemalesLact2 are 3 years old here
+  DamofFemalesLact1 = selectInd(yngFemales, nInd = round(0.3 * nDamsOfFemales), use = "rand") # DamofFemalesLact1 are 2 years old here
   
   yngFemales = selectInd(lambs, nInd = nYngFemales, use = "rand", sex = "F") 
   
