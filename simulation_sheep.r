@@ -15,7 +15,7 @@ library(data.table) # for fast data operations (reading, writing, ...)
 
 # Source required functions
 sourceFunctions = function() {
-  paste0(source('functions_Mix99.R',echo=T))
+  paste0(source('functions_burnin.R',echo=T))
 }
 sourceFunctions() # to ensure we have the latest version
 
