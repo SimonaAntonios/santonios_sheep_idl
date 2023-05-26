@@ -560,6 +560,12 @@ for (year in yearToDo:nPTyrs) {
   save(x = database, file = "database.RData")
 
   # EBV
+  OldDir = getwd()
+  Dir = paste("Blup", year, sep = "_")
+  unlink(paste(OldDir,Dir, sep = "/"), recursive = TRUE)
+  dir.create(path = Dir, showWarnings = FALSE)
+  setwd(dir = Dir)
+  
   pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
                                   database = database,
                                   trait = 1,
@@ -567,7 +573,8 @@ for (year in yearToDo:nPTyrs) {
                                               varPE = permVar,
                                               varHY = herdYearVar,
                                               varE  = resVar))
-  # Set the EBV for every population
+  
+  setwd(dir = OldDir)
    # Set EBVs for every population
   
   eliteSires@ebv      =as.matrix(pedEbv[pedEbv$IId %in% eliteSires@id, "EBV"])
