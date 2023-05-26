@@ -10,6 +10,7 @@ rm(list = ls())
 # Load packages
 library(package = "tidyverse")
 library(package = "AlphaSimR")
+library(dplyr)
 library(degreenet)  # for simulation of herd sizes
 library(data.table) # for fast data operations (reading, writing, ...)
 
@@ -347,7 +348,13 @@ lambs = fillInMisc(pop = lambs, mothers = c(ewesLact1, ewesLact2, ewesLact3, ewe
 # 
 
 database = recordData( pop = eliteSires, year = startYear)
+database = recordData( pop = eliteSires1, year = startYear)
+database = recordData( pop = eliteSires2, year = startYear)
+database = recordData( pop = eliteSires3, year = startYear)
 database = recordData( pop = SiresOfFemales, year = startYear)
+database = recordData( pop = SiresOfFemales1, year = startYear)
+database = recordData( pop = SiresOfFemales2, year = startYear)
+database = recordData( pop = SiresOfFemales3, year = startYear)
 database = recordData(database, pop = wtRams1, year = startYear)
 database = recordData(database, pop = ntlMatingRams, year = startYear)
 database = recordData(database, pop = yngRams, year = startYear)
@@ -357,6 +364,7 @@ database = recordData( pop = ewesLact3, year = startYear, lactation = 3)
 database = recordData( pop = ewesLact2, year = startYear, lactation = 2)
 database = recordData( pop = ewesLact1, year = startYear, lactation = 1)
 database = recordData(database, pop = lambs, year = startYear)
+
 
 save(x = database, file = "database.RData")
 
@@ -532,7 +540,13 @@ for (year in yearToDo:nPTyrs) {
 
   # Data recording
   database = recordData( pop = eliteSires, year = yearFull)
+  database = recordData( pop = eliteSires1, year = yearFull)
+  database = recordData( pop = eliteSires2, year = yearFull)
+  database = recordData( pop = eliteSires3, year = yearFull)
   database = recordData( pop = SiresOfFemales, year = yearFull)
+  database = recordData( pop = SiresOfFemales1, year = yearFull)
+  database = recordData( pop = SiresOfFemales2, year = yearFull)
+  database = recordData( pop = SiresOfFemales3, year = yearFull)
   database = recordData(database, pop = wtRams1, year = yearFull)
   database = recordData(database, pop = ntlMatingRams, year = yearFull)
   database = recordData(database, pop = yngRams, year = yearFull)
@@ -542,7 +556,38 @@ for (year in yearToDo:nPTyrs) {
   database = recordData(database, pop = ewesLact2, year = yearFull, lactation = 2)
   database = recordData(database, pop = ewesLact1, year = yearFull, lactation = 1)
   database = recordData(database, pop = lambs, year = yearFull)
-  
+
   save(x = database, file = "database.RData")
+
+  # EBV
+  pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
+                                  database = database,
+                                  trait = 1,
+                                  vars = list(varA  = addVar,
+                                              varPE = permVar,
+                                              varHY = herdYearVar,
+                                              varE  = resVar))
+  # Set the EBV for every population
+   # Set EBVs for every population
+  
+  eliteSires@ebv      =as.matrix(pedEbv[pedEbv$IId %in% eliteSires@id, "EBV"])
+  eliteSires1@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires1@id, "EBV"])
+  eliteSires2@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires2@id, "EBV"])
+  eliteSires3@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires3@id, "EBV"])
+  SiresOfFemales@ebv  =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales@id, "EBV"])
+  SiresOfFemales1@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales1@id, "EBV"])
+  SiresOfFemales2@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales2@id, "EBV"])
+  SiresOfFemales3@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales3@id, "EBV"])
+  wtRams1@ebv         =as.matrix(pedEbv[pedEbv$IId %in% wtRams1@id, "EBV"])
+  ntlMatingRams@ebv   =as.matrix(pedEbv[pedEbv$IId %in% ntlMatingRams@id, "EBV"])
+  yngRams@ebv         =as.matrix(pedEbv[pedEbv$IId %in% yngRams@id, "EBV"])
+  yngFemales@ebv      =as.matrix(pedEbv[pedEbv$IId %in% yngFemales@id, "EBV"])
+  ewesLact4@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact4@id, "EBV"])
+  ewesLact3@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact3@id, "EBV"])
+  ewesLact2@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact2@id, "EBV"])
+  ewesLact1@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact1@id, "EBV"])
+  lambs@ebv           =as.matrix(pedEbv[pedEbv$IId %in% lambs@id, "EBV"])
+  
+  
 }
 }
