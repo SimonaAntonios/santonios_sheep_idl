@@ -22,7 +22,7 @@ sourceFunctions() # to ensure we have the latest version
 
 
 # ---- Global parameters ----
-
+nEwes               = 80000                                                        # no. of Females that will be mated
 nFemalesInLactation = 66600                                                        # no. of Females that are in lactation in the population
 nEliteEwes          = 6000
 nDamsOfFemales      = 60600
