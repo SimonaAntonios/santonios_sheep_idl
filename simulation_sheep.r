@@ -22,6 +22,7 @@ sourceFunctions() # to ensure we have the latest version
 
 # ---- Global parameters ----
 
+nEwes               = 80000
 nFemalesInLactation = 66600                                                        # no. of Females that are in lactation in the population
 nEliteEwes          = 6000
 nDamsOfFemales      = 60600
@@ -42,7 +43,7 @@ nSiresOfFemales3    = 55                                                        
 nNaturalMatingRams  = 1000                                                         # no. of NM sires selected every year
 startYear           = 1980                                                         # start year of the simulations
 nHerds              = 237                                                          # number of herds
-meanHerdSize        = 350                                                          # average herd size
+meanHerdSize        = 320                                                          # average herd size
 sdHerdSize          = 129                                                          # sd of herd size
 BaseNe              = 150                                                          # effective population size
 nChr                = 26                                                           # no. of chromosomes
@@ -127,7 +128,18 @@ founderPop = runMacs(nInd = 10 * BaseNe,
                                            "-r", RecRate * 4 * BaseNe,
                                            MaCSeNFlags),
                      manualGenLen = RecRate * ChrSize)
-save.image("founder.RData")
+
+founderPop= runMacs2(nInd = 10 * BaseNe,
+                      nChr = 26,
+                      segSites = 4000,
+                      Ne = 150,
+                      bp = 0.95,
+                      genLen =  RecRate * ChrSize,
+                      mutRate = MutRate,
+                      histNe = c(150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5500, 6000, 6500, 7000, 7500),
+                      histGen = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 7000, 8000, 9000, 10000)
+                     )
+save.image("founder_runMacs2.RData")
 
 # -------------------------------- AlphaSimR simulation parameters (SP) --------------------------------
 
@@ -140,7 +152,7 @@ SP$addTraitA(nQtlPerChr = nQTLPerChr, mean = trtMean, var = addVar)
 
 # ---- Herds and herd and year effects ----
 
-herdSize = simcmp(n = (10 * nHerds),
+herdSize = simcmp(n = (nHerds),
                   v = c(meanHerdSize, sdHerdSize))
 # hist(herdSize)
 herdSize = herdSize[herdSize > 9]
@@ -347,7 +359,13 @@ lambs = fillInMisc(pop = lambs, mothers = c(ewesLact1, ewesLact2, ewesLact3, ewe
 # 
 
 database = recordData( pop = eliteSires, year = startYear)
+database = recordData(database, pop = eliteSires1, year = startYear)
+database = recordData(database, pop = eliteSires2, year = startYear)
+database = recordData(database, pop = eliteSires3, year = startYear)
 database = recordData( pop = SiresOfFemales, year = startYear)
+database = recordData(database, pop = SiresOfFemales1, year = startYear)
+database = recordData(database, pop = SiresOfFemales2, year = startYear)
+database = recordData(database, pop = SiresOfFemales3, year = startYear)
 database = recordData(database, pop = wtRams1, year = startYear)
 database = recordData(database, pop = ntlMatingRams, year = startYear)
 database = recordData(database, pop = yngRams, year = startYear)
@@ -358,6 +376,10 @@ database = recordData( pop = ewesLact2, year = startYear, lactation = 2)
 database = recordData( pop = ewesLact1, year = startYear, lactation = 1)
 database = recordData(database, pop = lambs, year = startYear)
 
+
+
+
+
 save(x = database, file = "database.RData")
 
 # Save image
@@ -365,6 +387,7 @@ save(x = database, file = "database.RData")
 save.image(file = paste("image_Year0_FillIn_simona.RData", sep = ""))
 
 }
+
 
 if (runSim == 1 | runSim == 2) {
   if (runSim == 1) {
@@ -407,6 +430,46 @@ for (year in yearToDo:nPTyrs) {
   database = setDatabasePheno(database, pop = ewesLact3, trait = 1)
   database = setDatabasePheno(database, pop = ewesLact4, trait = 1)
   
+  # EBV
+  OldDir = getwd()
+  Dir = paste("Blup", year, sep = "_")
+  unlink(paste(OldDir,Dir, sep = "/"), recursive = TRUE)
+  dir.create(path = Dir, showWarnings = FALSE)
+  setwd(dir = Dir)
+  
+  pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
+                                  database = database,
+                                  trait = 1,
+                                  vars = list(varA  = addVar,
+                                              varPE = permVar,
+                                              varHY = herdYearVar,
+                                              varE  = resVar))
+  
+  setwd(dir = OldDir)
+  
+  
+  # Set EBVs for every population
+  
+  eliteSires@ebv      =as.matrix(pedEbv[pedEbv$IId %in% eliteSires@id, "EBV"])
+  eliteSires1@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires1@id, "EBV"])
+  eliteSires2@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires2@id, "EBV"])
+  eliteSires3@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires3@id, "EBV"])
+  SiresOfFemales@ebv  =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales@id, "EBV"])
+  SiresOfFemales1@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales1@id, "EBV"])
+  SiresOfFemales2@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales2@id, "EBV"])
+  SiresOfFemales3@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales3@id, "EBV"])
+  wtRams1@ebv         =as.matrix(pedEbv[pedEbv$IId %in% wtRams1@id, "EBV"])
+  ntlMatingRams@ebv   =as.matrix(pedEbv[pedEbv$IId %in% ntlMatingRams@id, "EBV"])
+  yngRams@ebv         =as.matrix(pedEbv[pedEbv$IId %in% yngRams@id, "EBV"])
+  yngFemales@ebv      =as.matrix(pedEbv[pedEbv$IId %in% yngFemales@id, "EBV"])
+  ewesLact4@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact4@id, "EBV"])
+  ewesLact3@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact3@id, "EBV"])
+  ewesLact2@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact2@id, "EBV"])
+  ewesLact1@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact1@id, "EBV"])
+  lambs@ebv           =as.matrix(pedEbv[pedEbv$IId %in% lambs@id, "EBV"])
+  
+  
+ 
   # ---- SELECTION BY CATEGORIES ----
   
   # ---- Rams ----
@@ -433,15 +496,20 @@ for (year in yearToDo:nPTyrs) {
   # ---- Sires of Dams ----
   SiresOfFemales3 = SiresOfFemales2 # SiresOfFemales3 are 4.5 years old here
   SiresOfFemales2 = SiresOfFemales1 # SiresOfFemales2 are 3.5 years old here
+  if (year == 1) {
+    use = "rand"
+  } else {
+    use= "ebv"
+  }
   if (all(wtRams1@father == "0")) {
     SiresOfFemales1 = selectInd(pop = wtRams1, nInd = nSiresOfFemales1, # SiresOfFemales1 are 2.5 years old here
-                                use = use, trait = 1)
+                            use = use, trait = 1)
   } else {
     SiresOfFemales1 = selectWithinFam(pop = wtRams1, nInd = 1, # SiresOfFemales1 are 2.5 years old here
-                                      use = use, trait = 1,
-                                      famType = "M")
+                                  use = use, trait = 1,
+                                  famType = "M")
     SiresOfFemales1 = selectInd(pop = SiresOfFemales1, nInd = nSiresOfFemales1,
-                                use = use, trait = 1)
+                            use = use, trait = 1)
   }
   
   # We need this sel and n before we update eliteSires
@@ -516,23 +584,15 @@ for (year in yearToDo:nPTyrs) {
   lambs = fillInMisc(pop = lambs, mothers = c(ewesLact1, ewesLact2, ewesLact3, ewesLact4),
                      permEnvVar = permVar, year = yearFull)
 
-  # ---- Heterozygosity ----
-  # 
-  # lambsHet = calcHeterozygosity(pop = selectInd(lambs, nInd = ceiling(0.1 * nEwes), use = "rand"))
-  # ramsHet = calcHeterozygosity(pop = eliteSires)
-  # heterozygosity = rbind(
-  #   heterozygosity,
-  #   data.frame(year = yearFull,
-  #              lambsHet = lambsHet$Heterozygosity, lambsHom = lambsHet$Homozygosity,
-  #              ramsHet = ramsHet$Heterozygosity, ramsHom = ramsHet$Homozygosity)
-  # )
-  # write.table(x = heterozygosity, file = "heterozygosity.txt",
-  #             col.names = TRUE, row.names = FALSE, quote = FALSE)
-  # 
-
   # Data recording
   database = recordData( pop = eliteSires, year = yearFull)
+  database = recordData(database, pop = eliteSires1, year = yearFull)
+  database = recordData(database, pop = eliteSires2, year = yearFull)
+  database = recordData(database, pop = eliteSires3, year = yearFull)
   database = recordData( pop = SiresOfFemales, year = yearFull)
+  database = recordData(database, pop = SiresOfFemales1, year = yearFull)
+  database = recordData(database, pop = SiresOfFemales2, year = yearFull)
+  database = recordData(database, pop = SiresOfFemales3, year = yearFull)
   database = recordData(database, pop = wtRams1, year = yearFull)
   database = recordData(database, pop = ntlMatingRams, year = yearFull)
   database = recordData(database, pop = yngRams, year = yearFull)
@@ -544,5 +604,11 @@ for (year in yearToDo:nPTyrs) {
   database = recordData(database, pop = lambs, year = yearFull)
   
   save(x = database, file = "database.RData")
+
+  save.image(file = paste("image_Year", year, "_PT.RData", sep = ""))
 }
 }
+
+
+
+
