@@ -332,8 +332,6 @@ colnames(ebv_ind) = c("IId", "EBV")
 library(dplyr)
 # attach(ebv_ind)
 # ebv_ind <- ebv_ind[order(IId),]
-
-
 ebv_ind <- arrange(ebv_ind,IId)
 return(ebv_ind)
 }
