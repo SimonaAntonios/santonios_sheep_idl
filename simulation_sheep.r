@@ -152,10 +152,10 @@ SP$addTraitA(nQtlPerChr = nQTLPerChr, mean = trtMean, var = addVar)
 
 # ---- Herds and herd and year effects ----
 
-herdSize = simcmp(n = (nHerds),
+herdSize = simcmp(n = (10 * nHerds),
                   v = c(meanHerdSize, sdHerdSize))
 # hist(herdSize)
-herdSize = herdSize[herdSize > 9]
+herdSize = herdSize[herdSize > 100]
 herdSize = sample(x = herdSize, size = nHerds)
 # hist(herdSize)
 herdEffect = cbind(rnorm(n = nHerds, mean = 0, sd = sqrt(herdVar[1])))
@@ -343,7 +343,7 @@ lambs = makeCross2(females = c(ewesLact1, ewesLact2, ewesLact3, ewesLact4),
                     males = c(eliteSires, wtRams1, SiresOfFemales, ntlMatingRams),
                     crossPlan = matingPlan)
 lambs = selectInd(pop = lambs, nInd = nLambs, use = "rand")
-lambs = fillInMisc(pop = lambs, mothers = c(ewesLact1, ewesLact2, ewesLact3, ewesLact4),
+lambs = fillInMisc(pop = lambs, mothers = c(ewesLact1, ewesLact2, ewesLact3, ewesLact4), 
                     permEnvVar = permVar, year = startYear)
 
 # Heterozygosity
@@ -396,7 +396,7 @@ if (runSim == 1 | runSim == 2) {
   if (runSim == 2) {
     yearToDo = year + 1
   }
-# ---- Progeny testing stage ----
+# ---- Progeny testing stage ---- 
 
 for (year in yearToDo:nPTyrs) {
   yearFull = startYear + year
@@ -468,12 +468,15 @@ for (year in yearToDo:nPTyrs) {
   ewesLact1@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact1@id, "EBV"])
   lambs@ebv           =as.matrix(pedEbv[pedEbv$IId %in% lambs@id, "EBV"])
   
-  
+
  
   # ---- SELECTION BY CATEGORIES ----
-  
+  print(paste("Working on Rams selection year", year,
+              Sys.time(), "...", sep = " "))
   # ---- Rams ----
   # ---- Elite sires ----
+  print(paste("elite sires part", year,
+              Sys.time(), "...", sep = " "))
   eliteSires3 = eliteSires2 # eliteSires3 are 4.5 years old here
   eliteSires2 = eliteSires1 # eliteSires2 are 3.5 years old here
   if (year == 1) {
@@ -492,7 +495,8 @@ for (year in yearToDo:nPTyrs) {
     eliteSires1 = selectInd(pop = eliteSires1, nInd = nEliteSires1,
                             use = use, trait = 1)
   }
-  
+  print(paste("sire of dams part", year,
+              Sys.time(), "...", sep = " "))
   # ---- Sires of Dams ----
   SiresOfFemales3 = SiresOfFemales2 # SiresOfFemales3 are 4.5 years old here
   SiresOfFemales2 = SiresOfFemales1 # SiresOfFemales2 are 3.5 years old here
@@ -512,14 +516,19 @@ for (year in yearToDo:nPTyrs) {
                             use = use, trait = 1)
   }
   
+
   # We need this sel and n before we update eliteSires
   # Note that we select yngRams only from lambs from proven rams (not waiting rams)
   sel = lambs@father %in% eliteSires@id
+  sel = which(unlist(sel))
   sel1 = lambs@father %in% c(eliteSires@id,SiresOfFemales@id) 
+  # sel1 = which(unlist(sel1))
   n = ceiling(nYngRams / length(eliteSires@id))
   eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
   wtRams1 = selectInd(pop = yngRams, nInd = nWtRams1 ,
                           use = use, trait = 1) # wtRams1 are 1.5 years old here
+  print(paste("yng rams", year,
+              Sys.time(), "...", sep = " "))
   yngRams = selectWithinFam(pop = lambs[sel], nInd = n, # yngRams are 0.12 year old here
                              use = use, trait = 1,
                              sex = "M", famType = "M")
@@ -530,7 +539,8 @@ for (year in yearToDo:nPTyrs) {
                              use = use, trait = 1, sex = "M", famType = "M")
   # ---- ewes ----
   # ---Elites---
-  
+  print(paste("Working on ewes selection year", year,
+              Sys.time(), "...", sep = " "))  
   EliteEwesLact4 = selectInd(ewesLact3, nInd = round(0.16 * nEliteEwes), use = "ebv") # EliteEwesLact4 are 5 years old here
   EliteEwesLact3 = selectInd(ewesLact2, nInd = round(0.26 * nEliteEwes), use = "ebv") # EliteEwesLact3 are 4 years old here
   EliteEwesLact2 = selectInd(ewesLact1, nInd = round(0.35 * nEliteEwes), use = "ebv") # EliteEwesLact2 are 3 years old here
@@ -547,10 +557,14 @@ for (year in yearToDo:nPTyrs) {
   EliteEwesLact1@pheno[,c(1:nTraits)] = NA
   
   # ---Dams of Females---
-  DamofFemalesLact4 = selectInd(DamofFemalesLact3, round(0.18 * nDamsOfFemales), use = "rand") # DamofFemalesLact4 are 5 years old here
-  DamofFemalesLact3 = selectInd(DamofFemalesLact2, round(0.24 * nDamsOfFemales), use = "rand") # DamofFemalesLact3 are 4 years old here
-  DamofFemalesLact2 = selectInd(DamofFemalesLact1, round(0.28 * nDamsOfFemales), use = "rand") # DamofFemalesLact2 are 3 years old here
-  DamofFemalesLact1 = selectInd(yngFemales, nInd = round(0.3 * nDamsOfFemales), use = "rand") # DamofFemalesLact1 are 2 years old here
+  DamofFemalesLact4 = selectInd(DamofFemalesLact3, nInd = round(0.18 * nDamsOfFemales), use = "rand") # DamofFemalesLact4 are 5 years old here
+  DamofFemalesLact3 = selectInd(DamofFemalesLact2, nInd = round(0.24 * nDamsOfFemales), use = "rand") # DamofFemalesLact3 are 4 years old here
+  DamofFemalesLact2 = selectInd(DamofFemalesLact1, nInd = round(0.28 * nDamsOfFemales), use = "rand") # DamofFemalesLact2 are 3 years old here
+  round(0.3 * nDamsOfFemales)
+  
+  yngFemales
+  
+  DamofFemalesLact1 = selectInd(pop= yngFemales, nInd=round(0.3 * nDamsOfFemales),  use = "rand") # DamofFemalesLact1 are 2 years old here
   
   yngFemales = selectInd(lambs, nInd = nYngFemales, use = "rand", sex = "F") 
   
@@ -564,8 +578,10 @@ for (year in yearToDo:nPTyrs) {
   DamofFemalesLact2@pheno[,c(1:nTraits)] = NA
   DamofFemalesLact1@pheno[,c(1:nTraits)] = NA
   
-  # ---- lambs ----
   
+  # ---- lambs ----
+  print(paste("Working on lambs year", year,
+              Sys.time(), "...", sep = " "))  
   # See above comments on stage of animals and their use in the fill-in stage
   n1 = round(400 * (nEliteSires1+nEliteSires2+nEliteSires3) * 0.75 * 0.6 * 1.6)
   n2 = round(150 * 140 * 0.75 * 0.6 * 1.6)
