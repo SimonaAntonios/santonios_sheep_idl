@@ -128,18 +128,19 @@ founderPop = runMacs(nInd = 10 * BaseNe,
                                            "-r", RecRate * 4 * BaseNe,
                                            MaCSeNFlags),
                      manualGenLen = RecRate * ChrSize)
-
-founderPop= runMacs2(nInd = 10 * BaseNe,
-                      nChr = 26,
-                      segSites = 4000,
-                      Ne = 150,
-                      bp = 0.95,
-                      genLen =  RecRate * ChrSize,
-                      mutRate = MutRate,
-                      histNe = c(150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5500, 6000, 6500, 7000, 7500),
-                      histGen = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 7000, 8000, 9000, 10000)
-                     )
-save.image("founder_runMacs2.RData")
+save.image("founder.RData")
+  
+# founderPop= runMacs2(nInd = 10 * BaseNe,
+#                      nChr = 26,
+#                      segSites = 4000,
+#                      Ne = 150,
+#                      bp = 0.95,
+#                      genLen =  RecRate * ChrSize,
+#                      mutRate = MutRate,
+#                      histNe = c(150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5500, 6000, 6500, 7000, 7500),
+#                      histGen = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 7000, 8000, 9000, 10000)
+#                     )
+# save.image("founder_runMacs2.RData")
 
 # -------------------------------- AlphaSimR simulation parameters (SP) --------------------------------
 
