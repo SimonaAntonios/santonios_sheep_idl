@@ -329,11 +329,11 @@ yngFemales = fillInMisc(pop = yngFemales, herds = herds, permEnvVar = permVar,
 
 # new born
 ## From AI
-n1 = round(400 * (nEliteSires1+nEliteSires2+nEliteSires3) * 0.75 * 0.6 * 1.6)
-n2 = round(150 * 140 * 0.75 * 0.6 * 1.6)
-n3 = round((nEwes/2 -(400 * (nEliteSires1+nEliteSires2+nEliteSires3) + 150 * 140)) * 0.75 * 0.6 * 1.6)
+n1 = round(400 * (nEliteSires1+nEliteSires2+nEliteSires3) * 0.75 * 0.6 * 1.6)  # 8640 progeny
+n2 = round(150 * 140 * 0.75 * 0.6 * 1.6)  # 15120 progeny
+n3 = round((nEwes/2 -(400 * (nEliteSires1+nEliteSires2+nEliteSires3) + 150 * 140)) * 0.75 * 0.6 * 1.6) # 5040 progeny
 ## From Natural mating
-n4= round(1000 * 40 * 0.9 * 0.75 * 1.4)   
+n4= round(1000 * 40 * 0.9 * 0.75 * 1.4)  # 37800 progeny 
 ramsId = c(sample(eliteSires@id, size = n1, replace = TRUE),
             sample(wtRams1@id, size = n2, replace = TRUE),
             sample(SiresOfFemales@id,size = n3, replace = TRUE),
@@ -467,8 +467,8 @@ for (year in yearToDo:nPTyrs) {
   ewesLact3@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact3@id, "EBV"])
   ewesLact2@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact2@id, "EBV"])
   ewesLact1@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact1@id, "EBV"])
-  lambs@ebv           =as.matrix(pedEbv[pedEbv$IId %in% lambs@id, "EBV"])
-  
+  lambs@ebv           =as.matrix(pedEbv[pedEbv$IId %in% lambs@iid, "EBV"]) #is it correct if I replaced the id by iid?
+
 
  
   # ---- SELECTION BY CATEGORIES ----
@@ -521,18 +521,20 @@ for (year in yearToDo:nPTyrs) {
   # We need this sel and n before we update eliteSires
   # Note that we select yngRams only from lambs from proven rams (not waiting rams)
   sel = lambs@father %in% eliteSires@id
-  sel = which(unlist(sel))
+  # sel = which(unlist(sel)) 
   sel1 = lambs@father %in% c(eliteSires@id,SiresOfFemales@id) 
   # sel1 = which(unlist(sel1))
   n = ceiling(nYngRams / length(eliteSires@id))
   eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
+  SiresOfFemales = c(SiresOfFemales3, SiresOfFemales2, SiresOfFemales1)
   wtRams1 = selectInd(pop = yngRams, nInd = nWtRams1 ,
                           use = use, trait = 1) # wtRams1 are 1.5 years old here
   print(paste("yng rams", year,
               Sys.time(), "...", sep = " "))
+  
   yngRams = selectWithinFam(pop = lambs[sel], nInd = n, # yngRams are 0.12 year old here
                              use = use, trait = 1,
-                             sex = "M", famType = "M")
+                             sex = "M", famType = "M")  # I'll fix - Error in x@ebv[i, , drop = FALSE] : subscript out of bounds - with this 'lambs[lambs@id[sel]] instead of 'lambs[sel]'
   yngRams = selectInd(pop = yngRams, nInd = nYngRams,
                        use = use, trait = 1)
   
