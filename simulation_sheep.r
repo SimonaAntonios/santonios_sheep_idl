@@ -130,16 +130,17 @@ founderPop = runMacs(nInd = 10 * BaseNe,
                      manualGenLen = RecRate * ChrSize)
 save.image("founder.RData")
   
-# founderPop= runMacs2(nInd = 10 * BaseNe,
-#                      nChr = 26,
+# founderPop= runMacs2(nInd = 2,
+#                      nChr = 2,
 #                      segSites = 4000,
 #                      Ne = 150,
 #                      bp = 0.95,
 #                      genLen =  RecRate * ChrSize,
 #                      mutRate = MutRate,
 #                      histNe = c(150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5500, 6000, 6500, 7000, 7500),
-#                      histGen = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 7000, 8000, 9000, 10000)
-#                     )
+#                      histGen = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 7000, 8000, 9000, 10000),
+#                      returnCommand = TRUE
+#                      )
 # save.image("founder_runMacs2.RData")
 
 # -------------------------------- AlphaSimR simulation parameters (SP) --------------------------------
@@ -431,44 +432,6 @@ for (year in yearToDo:nPTyrs) {
   database = setDatabasePheno(database, pop = ewesLact3, trait = 1)
   database = setDatabasePheno(database, pop = ewesLact4, trait = 1)
   
-  # EBV
-  OldDir = getwd()
-  Dir = paste("Blup", year, sep = "_")
-  unlink(paste(OldDir,Dir, sep = "/"), recursive = TRUE)
-  dir.create(path = Dir, showWarnings = FALSE)
-  setwd(dir = Dir)
-  
-  pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
-                                  database = database,
-                                  trait = 1,
-                                  vars = list(varA  = addVar,
-                                              varPE = permVar,
-                                              varHY = herdYearVar,
-                                              varE  = resVar))
-  
-  setwd(dir = OldDir)
-  
-  
-  # Set EBVs for every population
-  
-  eliteSires@ebv      =as.matrix(pedEbv[pedEbv$IId %in% eliteSires@id, "EBV"])
-  eliteSires1@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires1@id, "EBV"])
-  eliteSires2@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires2@id, "EBV"])
-  eliteSires3@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires3@id, "EBV"])
-  SiresOfFemales@ebv  =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales@id, "EBV"])
-  SiresOfFemales1@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales1@id, "EBV"])
-  SiresOfFemales2@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales2@id, "EBV"])
-  SiresOfFemales3@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales3@id, "EBV"])
-  wtRams1@ebv         =as.matrix(pedEbv[pedEbv$IId %in% wtRams1@id, "EBV"])
-  ntlMatingRams@ebv   =as.matrix(pedEbv[pedEbv$IId %in% ntlMatingRams@id, "EBV"])
-  yngRams@ebv         =as.matrix(pedEbv[pedEbv$IId %in% yngRams@id, "EBV"])
-  yngFemales@ebv      =as.matrix(pedEbv[pedEbv$IId %in% yngFemales@id, "EBV"])
-  ewesLact4@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact4@id, "EBV"])
-  ewesLact3@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact3@id, "EBV"])
-  ewesLact2@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact2@id, "EBV"])
-  ewesLact1@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact1@id, "EBV"])
-  lambs@ebv           =as.matrix(pedEbv[pedEbv$IId %in% lambs@iid, "EBV"]) #is it correct if I replaced the id by iid?
-
 
  
   # ---- SELECTION BY CATEGORIES ----
@@ -510,7 +473,7 @@ for (year in yearToDo:nPTyrs) {
     SiresOfFemales1 = selectInd(pop = wtRams1, nInd = nSiresOfFemales1, # SiresOfFemales1 are 2.5 years old here
                             use = use, trait = 1)
   } else {
-    SiresOfFemales1 = selectWithinFam(pop = wtRams1, nInd = 1, # SiresOfFemales1 are 2.5 years old here
+    SiresOfFemales1 = selectWithinFam(pop = wtRams1, nInd = 2, # SiresOfFemales1 are 2.5 years old here
                                   use = use, trait = 1,
                                   famType = "M")
     SiresOfFemales1 = selectInd(pop = SiresOfFemales1, nInd = nSiresOfFemales1,
@@ -544,10 +507,10 @@ for (year in yearToDo:nPTyrs) {
   # ---Elites---
   print(paste("Working on ewes selection year", year,
               Sys.time(), "...", sep = " "))  
-  EliteEwesLact4 = selectInd(ewesLact3, nInd = round(0.16 * nEliteEwes), use = "ebv") # EliteEwesLact4 are 5 years old here
-  EliteEwesLact3 = selectInd(ewesLact2, nInd = round(0.26 * nEliteEwes), use = "ebv") # EliteEwesLact3 are 4 years old here
-  EliteEwesLact2 = selectInd(ewesLact1, nInd = round(0.35 * nEliteEwes), use = "ebv") # EliteEwesLact2 are 3 years old here
-  EliteEwesLact1 = selectInd(lambs[sel1], nInd = round(0.23 * nEliteEwes), use = "rand",sex ="F", trait = 1, famType = "M")   # EliteEwesLact1 are 2 years old here
+  EliteEwesLact4 = selectInd(ewesLact3, nInd = round(0.16 * nEliteEwes), use = use) # EliteEwesLact4 are 5 years old here
+  EliteEwesLact3 = selectInd(ewesLact2, nInd = round(0.26 * nEliteEwes), use = use) # EliteEwesLact3 are 4 years old here
+  EliteEwesLact2 = selectInd(ewesLact1, nInd = round(0.35 * nEliteEwes), use = use) # EliteEwesLact2 are 3 years old here
+  EliteEwesLact1 = selectInd(lambs[sel1], nInd = round(0.23 * nEliteEwes), use = use,sex ="F", trait = 1, famType = "M")   # EliteEwesLact1 are 2 years old here
 
   # Set phenotypes of the last lactation from the last generation to missing.
   # These are only copied phenotypes from the latest lactation.
@@ -603,6 +566,48 @@ for (year in yearToDo:nPTyrs) {
   lambs = fillInMisc(pop = lambs, mothers = c(ewesLact1, ewesLact2, ewesLact3, ewesLact4),
                      permEnvVar = permVar, year = yearFull)
 
+
+  # EBV
+  print(paste("Setting EBV", year,
+              Sys.time(), "...", sep = " "))
+  
+  OldDir = getwd()
+  Dir = paste("Blup", year, sep = "_")
+  unlink(paste(OldDir,Dir, sep = "/"), recursive = TRUE)
+  dir.create(path = Dir, showWarnings = FALSE)
+  setwd(dir = Dir)
+  
+  pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
+                                  database = database,
+                                  trait = 1,
+                                  vars = list(varA  = addVar,
+                                              varPE = permVar,
+                                              varHY = herdYearVar,
+                                              varE  = resVar))
+  
+  setwd(dir = OldDir)
+  
+  
+  # Set EBVs for every population
+  
+  eliteSires@ebv      =as.matrix(pedEbv[pedEbv$IId %in% eliteSires@iid, "EBV"])
+  eliteSires1@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires1@iid, "EBV"])
+  eliteSires2@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires2@iid, "EBV"])
+  eliteSires3@ebv     =as.matrix(pedEbv[pedEbv$IId %in% eliteSires3@iid, "EBV"])
+  SiresOfFemales@ebv  =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales@iid, "EBV"])
+  SiresOfFemales1@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales1@iid, "EBV"])
+  SiresOfFemales2@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales2@iid, "EBV"])
+  SiresOfFemales3@ebv =as.matrix(pedEbv[pedEbv$IId %in% SiresOfFemales3@iid, "EBV"])
+  wtRams1@ebv         =as.matrix(pedEbv[pedEbv$IId %in% wtRams1@iid, "EBV"])
+  ntlMatingRams@ebv   =as.matrix(pedEbv[pedEbv$IId %in% ntlMatingRams@iid, "EBV"])
+  yngRams@ebv         =as.matrix(pedEbv[pedEbv$IId %in% yngRams@iid, "EBV"])
+  yngFemales@ebv      =as.matrix(pedEbv[pedEbv$IId %in% yngFemales@iid, "EBV"])
+  ewesLact4@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact4@iid, "EBV"])
+  ewesLact3@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact3@iid, "EBV"])
+  ewesLact2@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact2@iid, "EBV"])
+  ewesLact1@ebv       =as.matrix(pedEbv[pedEbv$IId %in% ewesLact1@iid, "EBV"])
+  lambs@ebv           =as.matrix(pedEbv[pedEbv$IId %in% lambs@iid, "EBV"]) 
+  
   # Data recording
   database = recordData( pop = eliteSires, year = yearFull)
   database = recordData(database, pop = eliteSires1, year = yearFull)
@@ -623,11 +628,12 @@ for (year in yearToDo:nPTyrs) {
   database = recordData(database, pop = lambs, year = yearFull)
   
   save(x = database, file = "database.RData")
-
+  
   save.image(file = paste("image_Year", year, "_PT.RData", sep = ""))
 }
 }
 
+save.image(file = paste("burning", year, "_PT.RData", sep = ""))
 
 
 
