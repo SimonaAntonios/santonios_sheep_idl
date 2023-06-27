@@ -1,0 +1,31 @@
+.DS_Store
+.Rapp.history
+.Rhistory
+*.mat
+*.txt
+*.log
+*.var
+*.RData
+*.pdf
+blupf90+
+renum*
+renadd*
+renf9*
+solutions*
+fspak*
+cor
+pedigree
+performance
+solver_option_file.slv
+Blup_*
+untitled folder
+
+# Working files qnd stuff from before
+burnin.R
+functions_Mix99.R
+functions_burnin copy.R
+scenario.R
+relax2*
+simulation_sheep copy.r
+simulation_sheep_senario1.r
+
