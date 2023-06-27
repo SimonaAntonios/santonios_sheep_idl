@@ -93,13 +93,14 @@ setPhenoEwe = function(pop, varE, mean, herds, yearEffect, traitMask) {
   # Create a complex cow phenotype
   # pop population
   # varE numeric, environmental variance
+  # mean numeric, population mean (such as lactation mean)
   # herds list, holding herd, herdEffect (vector or matrix), and
   #   herd-year effect (vector or matrix) nodes
   # yearEffect numeric, year effect (scalar or vector)
   # traitMask matrix, specify which animals should have which pheno NA
   pop = setPheno(pop, varE = varE)
   herd = getHerd(pop)
-  pop@pheno = pop@pheno +
+  pop@pheno = mean + pop@pheno +
     yearEffect +
     herds$herdEffect[herd, ] +
     herds$herdYearEffect[herd, ] +
@@ -108,10 +109,7 @@ setPhenoEwe = function(pop, varE, mean, herds, yearEffect, traitMask) {
     pop@pheno[traitMask] = NA
   }
   return(pop)
-  mean = mean
 }
-
-
 
 setDatabasePheno = function(database, pop = NULL, trait = 1) {
   # Takes phenotypes and adds/updates them in database
