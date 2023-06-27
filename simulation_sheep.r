@@ -4,7 +4,6 @@
 # Simona Antonios
 # source('simulation_sheep.r',echo=T)
 
-
 # Clean
 rm(list = ls())
 simStart = "FS"
