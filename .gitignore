@@ -6,6 +6,7 @@
 *.log
 *.var
 *.RData
+!founder_runMacs2.RData
 *.pdf
 blupf90+
 renum*
