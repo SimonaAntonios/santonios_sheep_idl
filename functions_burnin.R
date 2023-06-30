@@ -77,24 +77,21 @@ setPhenoEwe = function(pop, varE, mean, herds, yearEffect) {
   #   herd-year effect (vector or matrix) nodes
   # yearEffect numeric, year effect (scalar or vector)
   # traitMask matrix, specify which animals should have which pheno NA
-  pop = setPheno(pop, varE = varE)
+  pop = setPheno(pop, varE = varE) # genetics + environment/residual
   herd = getHerd(pop)
-  pop@pheno = mean + pop@pheno +
-    yearEffect +
+  if (!is.matrix(mean)) {
+    mean <- as.matrix(mean)
+  }
+  if (!is.matrix(yearEffect)) {
+    yearEffect <- as.matrix(yearEffect)
+  }
+  pop@pheno = rep(1, times = nInd(pop)) %*% mean +
+    pop@pheno +
+    rep(1, times = nInd(pop)) %*% yearEffect +
     herds$herdEffect[herd, ] +
     herds$herdYearEffect[herd, ] +
     getPermEnvEffect(pop)
   return(pop)
-}
-
-setDatabasePheno = function(database, pop, trait = 1) {
-  # Takes phenotypes and adds/updates them in database
-  # database list
-  # pop population
-  # trait numeric, indicating which traits to set (one or more values,
-  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2
-  database$Pheno[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@pheno[, trait]
-  return(database)
 }
 
 recordData = function(database = NULL, pop = NULL, year, lactation = NA, label = NA) {
@@ -350,34 +347,38 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
 
 setEbv = function(pop, ebv, trait = 1) {
   # Set EBV for a population
-  # pop population
+  # pop Pop
   # ebv data.table with columns IId and Ebv (one or more columns)
   # trait numeric, indicating which traits to set (one or more values
-  #       so, with two traits options are: trait = 1, trait = 2, or trait = 1:2
-  if (!is.null(pop)) {
-    matchId = match(x = pop@iid, table = ebv$IId)
-    if (ncol(pop@ebv) == 0) {
-      pop@ebv = matrix(data = NA,
-                       nrow = pop@nInd,
-                       ncol = pop@nTraits)
-    }
-    traitDataTableCol = 1 + trait
-    # pop@ebv[, trait] = as.matrix(ebv[matchId, ..traitDataTableCol]) # be careful ebv is data.table
-    pop@ebv[, trait] = as.matrix(ebv[matchId, traitDataTableCol]) # be careful ebv is data.frame
+  #   so, with two traits options are: trait = 1, trait = 2, or trait = 1:2)
+  if (ncol(pop@ebv) == 0) {
+    pop@ebv = matrix(data = NA,
+                     nrow = pop@nInd,
+                     ncol = pop@nTraits)
   }
+  matchId = match(x = pop@id, table = ebv$IId)
+  traitDataTableCol = 1 + trait
+  # pop@ebv[, trait] = as.matrix(ebv[matchId, ..traitDataTableCol]) # be careful ebv is data.table
+  pop@ebv[, trait] = as.matrix(ebv[matchId, traitDataTableCol]) # be careful ebv is data.frame
   return(pop)
+}
+
+setDatabasePheno = function(database, pop, trait = 1) {
+  # Takes phenotypes and adds/updates them in database
+  # database list
+  # pop Pop
+  # trait numeric, indicating which traits to set (one or more values,
+  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2)
+  database$Pheno[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@pheno[, trait]
+  return(database)
 }
 
 setDatabaseEbv = function(database, pop = NULL, trait = 1) {
   # Takes EBV from the pop object and adds/updates them in database
   # database list
+  # pop Pop
   # trait numeric, indicating which traits to set (one or more values,
-  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2
-  if(!is.null(pop)) {
-    popName = deparse(substitute(pop))
-    matchId <- match(x = paste(database$General$IId, database$General$Pop),
-                     table = paste(pop@id, rep(popName, 1, length(pop@id))), nomatch = 0)
-    database$Ebv[matchId != 0, trait] <- pop@ebv[matchId, trait]
-  }
+  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2)
+  database$Ebv[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@ebv[, trait]
   return(database)
 }

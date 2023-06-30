@@ -208,7 +208,7 @@ if (runSim == 1) {
   # ---- Herds and herd and year effects ----
 
   herdSize = simcmp(n = (10 * nHerds),
-                    v = c(round(meanHerdSize/10), round(sdHerdSize/10)))
+                    v = c(round(meanHerdSize / 10), round(sdHerdSize / 10)))
   # hist(herdSize)
   herdSize = herdSize * 10
   herdSize = herdSize[herdSize > 100]
@@ -425,8 +425,7 @@ if (runSim == 1 | runSim == 2) {
   for (year in yearToDo:nPTyrs) {
     # year = yearToDo
     yearFull = startYear + year
-    print(paste("Working on Progeny testing stage year", year,
-                Sys.time(), "...", sep = " "))
+    print(paste("Working on Progeny testing stage year", year, Sys.time(), "...", sep = " "))
     yearEffect = sampleYearEffect(n = 1)
     herds$herdYearEffect = sampleHerdYearEffect(n = nHerds)
 
@@ -472,11 +471,8 @@ if (runSim == 1 | runSim == 2) {
     database = setDatabasePheno(database, pop = eliteEwesLact1)
 
     # ---- Rams ----
-    print(paste("Working on Rams selection year", year,
-                Sys.time(), "...", sep = " "))
-    # ---- Elite sires ----
-    print(paste("elite sires part", year,
-                Sys.time(), "...", sep = " "))
+    print(paste("Working on Ram selection year", year, Sys.time(), "...", sep = " "))
+    # ---- ... Elite sires ----
     eliteSires3 = eliteSires2 # eliteSires3 are 4.5 years old here
     eliteSires2 = eliteSires1 # eliteSires2 are 3.5 years old here
 
@@ -490,10 +486,8 @@ if (runSim == 1 | runSim == 2) {
       eliteSires1 = selectInd(pop = eliteSires1, nInd = nEliteSires1,
                               use = use)
     }
-    print(paste("sire of dams part", year,
-                Sys.time(), "...", sep = " "))
 
-    # ---- Sires of Dams ----
+    # ---- ... Sires of Dams ----
     siresOfFemales3 = siresOfFemales2 # siresOfFemales3 are 5.5 years old here
     siresOfFemales2 = siresOfFemales1 # siresOfFemales2 are 4.5 years old here
 
@@ -529,9 +523,8 @@ if (runSim == 1 | runSim == 2) {
     siresOfFemales = c(siresOfFemales3, siresOfFemales2, siresOfFemales1)
 
     # ---- Ewes ----
-    # ---- Elite ewes ----
-    print(paste("Working on ewes selection year", year,
-                Sys.time(), "...", sep = " "))
+    print(paste("Working on ewes selection year", year, Sys.time(), "...", sep = " "))
+    # ---- ... Elite ewes ----
     ewesLact1 = c(damOfFemalesLact1, eliteEwesLact1)
     ewesLact2 = c(damOfFemalesLact2, eliteEwesLact2)
     ewesLact3 = c(damOfFemalesLact3, eliteEwesLact3)
@@ -552,7 +545,7 @@ if (runSim == 1 | runSim == 2) {
     eliteEwesLact2@pheno[,] = NA
     eliteEwesLact1@pheno[,] = NA
 
-    # ---- Dams of Females ----
+    # ---- ... Dams of Females ----
 
     damOfFemalesLact4 = selectInd(ewesLact3[!ewesLact3@id %in% eliteEwesLact4@id],
                                   nInd = round(0.18 * nDamsOfFemales), use = "rand") # damOfFemalesLact4 are 4 years old here
@@ -573,9 +566,7 @@ if (runSim == 1 | runSim == 2) {
     damOfFemalesLact1@pheno[,] = NA
 
     # ---- Lambs ----
-
-    print(paste("Working on lambs year", year,
-                Sys.time(), "...", sep = " "))
+    print(paste("Working on lambs year", year, Sys.time(), "...", sep = " "))
     matingPlan1 = cbind(c(eliteEwesLact1@id, eliteEwesLact2@id, eliteEwesLact3@id, eliteEwesLact4@id),
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
@@ -617,16 +608,14 @@ if (runSim == 1 | runSim == 2) {
     database = recordData(database, pop = damOfFemalesLact2, year = yearFull, lactation = 2)
     database = recordData(database, pop = damOfFemalesLact1, year = yearFull, lactation = 1)
     database = recordData(database, pop = lambs, year = yearFull)
-
     save(x = database, file = "database.RData")
-    # EBV
-    print(paste("Setting EBV", year,
-                Sys.time(), "...", sep = " "))
+
+    print(paste("Estimating EBV", year, Sys.time(), "...", sep = " "))
 
     OldDir = getwd()
-    Dir = paste("Blup", year, sep = "_")
-    unlink(paste(OldDir,Dir, sep = "/"), recursive = TRUE)
-    dir.create(path = Dir, showWarnings = FALSE)
+    Dir = paste("BLUP", year, sep = "_")
+    unlink(Dir, recursive = TRUE)
+    dir.create(path = Dir)
     setwd(dir = Dir)
 
     pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
@@ -672,7 +661,7 @@ if (runSim == 1 | runSim == 2) {
     database = setDatabaseEbv(database, pop = lambs)
 
     eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
-    damOfFemales=c(damOfFemalesLact1, damOfFemalesLact2, damOfFemalesLact3, damOfFemalesLact4)
+    damOfFemales = c(damOfFemalesLact1, damOfFemalesLact2, damOfFemalesLact3, damOfFemalesLact4)
 
     # ---- Summarising EBV ----
 
