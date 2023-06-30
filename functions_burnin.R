@@ -1,22 +1,12 @@
-# source('functions_burnin.R', echo=TRUE)
+# source('functions_burnin.R', echo = TRUE)
 
 sampleHerdYearEffect = function(n) {
-  rnorm(n = n, sd = sqrt(herdYearVar))
+  as.matrix(rnorm(n = n, sd = sqrt(herdYearVar)))
 }
 
 sampleYearEffect = function(n = 1) {
-  c(rnorm(n = n, sd = sqrt(yearVar)))
+  as.matrix(rnorm(n = n, sd = sqrt(yearVar)))
 }
-
-# sampleHerdYearEffect = function(n) {
-#   cbind(rnorm(n = n, sd = sqrt(herdYearVar[1])),
-#         rnorm(n = n, sd = sqrt(herdYearVar[2])))
-# }
-#
-# sampleYearEffect = function(n = 1) {
-#   c(rnorm(n = n, sd = sqrt(yearVar[1])),
-#     rnorm(n = n, sd = sqrt(yearVar[2])))
-# }
 
 getHerd = function(pop) {
   # Getting herd information for individuals of a population
@@ -33,6 +23,14 @@ getYob = function(pop) {
 getPermEnvEffect = function(pop) {
   # Getting permanent environment effect for individuals of a population
   ret = sapply(X = pop@misc, FUN = function(x) x$permEnvEffect)
+  return(ret)
+}
+
+getIIdPop = function(pop, popObject = NULL) {
+  if (is.null(popObject)) {
+    popObject = deparse(substitute(pop))
+  }
+  ret = paste(pop@id, popObject, sep = "-")
   return(ret)
 }
 
@@ -89,17 +87,13 @@ setPhenoEwe = function(pop, varE, mean, herds, yearEffect) {
   return(pop)
 }
 
-setDatabasePheno = function(database, pop = NULL, trait = 1) {
+setDatabasePheno = function(database, pop, trait = 1) {
   # Takes phenotypes and adds/updates them in database
   # database list
+  # pop population
   # trait numeric, indicating which traits to set (one or more values,
   #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2
-  if(!is.null(pop)) {
-    popName = deparse(substitute(pop))
-    matchId <- match(x = paste(database$General$IId, database$General$Pop),
-                     table = paste(pop@id, rep(popName, 1, length(pop@id))), nomatch = 0)
-    database$Pheno[matchId != 0, trait] <- pop@pheno[matchId, trait]
-  }
+  database$Pheno[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@pheno[, trait]
   return(database)
 }
 
@@ -127,6 +121,9 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
       tmp$Ebv = matrix(data = as.numeric(NA),
                        nrow = nrow(pop@gv), ncol = ncol(pop@gv))
     }
+    row.names(tmp$Pheno) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
+    row.names(tmp$Gv) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
+    row.names(tmp$Ebv) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
     if (is.null(database)) {
       database = tmp
     } else {
