@@ -471,12 +471,9 @@ if (runSim == 1 | runSim == 2) {
     database = setDatabasePheno(database, pop = eliteEwesLact2)
     database = setDatabasePheno(database, pop = eliteEwesLact1)
 
-    # ---- SELECTION BY CATEGORIES ----
+    # ---- Rams ----
     print(paste("Working on Rams selection year", year,
                 Sys.time(), "...", sep = " "))
-
-    # ---- Rams ----
-
     # ---- Elite sires ----
     print(paste("elite sires part", year,
                 Sys.time(), "...", sep = " "))
@@ -532,7 +529,6 @@ if (runSim == 1 | runSim == 2) {
     siresOfFemales = c(siresOfFemales3, siresOfFemales2, siresOfFemales1)
 
     # ---- Ewes ----
-
     # ---- Elite ewes ----
     print(paste("Working on ewes selection year", year,
                 Sys.time(), "...", sep = " "))
@@ -605,7 +601,8 @@ if (runSim == 1 | runSim == 2) {
                                    damOfFemalesLact1, damOfFemalesLact2, damOfFemalesLact3, damOfFemalesLact4),
                        permEnvVar = permVar, year = yearFull)
 
-    # Data recording
+    # ---- Data recording & EBV ----
+
     database = recordData(database, pop = eliteSires, year = yearFull)
     database = recordData(database, pop = siresOfFemales, year = yearFull)
     database = recordData(database, pop = wtRams1, year = yearFull)
@@ -677,7 +674,8 @@ if (runSim == 1 | runSim == 2) {
     eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
     damOfFemales=c(damOfFemalesLact1, damOfFemalesLact2, damOfFemalesLact3, damOfFemalesLact4)
 
-    # Correlation
+    # ---- Summarising EBV ----
+
     correlation = data.frame( eliteSires = cor(eliteSires@ebv, eliteSires@gv),
                               siresOfFemales = cor(siresOfFemales@ebv, siresOfFemales@gv),
                               eliteEwes = cor(eliteEwes@ebv, eliteEwes@gv),
