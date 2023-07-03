@@ -1,7 +1,7 @@
 # Long-term selection in dairy ovine (Founders/Burn-in)
 # for one trait: Milk Yield
 # Simona Antonios
-# source('simulation_sheep.r', echo = TRUE)
+# source("simulation_sheep.r", echo = TRUE)
 
 # Clean
 rm(list = ls())
@@ -15,7 +15,7 @@ library(data.table) # for fast data operations (reading, writing, ...)
 
 # Source required functions
 sourceFunctions = function() {
-  paste0(source('functions_burnin.R', echo = TRUE))
+  paste0(source("functions.R", echo = TRUE))
 }
 sourceFunctions() # to ensure we have the latest version
 
@@ -163,20 +163,23 @@ if (runSim == 1) {
   #                      manualGenLen = RecRate * ChrSize)
   # save.image("founder.RData")
 
-  founderPop = runMacs2(nInd = 10 * BaseNe,
-                        nChr = nChr,
-                        segSites = nSNPPerChr,
-                        Ne = BaseNe,
-                        bp = ChrSize,
-                        genLen =  RecRate * ChrSize *26 ,
-                        mutRate = MutRate,
-                        histNe = histNe,
-                        histGen = histGen,
-                        # returnCommand = TRUE
-  )
-  save(founderPop, "founder_runMacs2.RData")
+  if (FALSE) {
+    founderPop = runMacs2(nInd = 10 * BaseNe,
+                          nChr = nChr,
+                          segSites = nSNPPerChr,
+                          Ne = BaseNe,
+                          bp = ChrSize,
+                          genLen =  RecRate * ChrSize *26 ,
+                          mutRate = MutRate,
+                          histNe = histNe,
+                          histGen = histGen,
+                          # returnCommand = TRUE
+    )
+    save(founderPop, file = "founder_runMacs2.RData")
+  }
   load("founder_runMacs2.RData")
-  sourceFunctions() # to ensure we have the latest version
+  # load(file = paste("burnin", year, "_PT.RData", sep = ""))
+  # sourceFunctions()
 
   # -------------------------------- AlphaSimR simulation parameters (SP) --------------------------------
 
@@ -389,26 +392,32 @@ if (runSim == 1) {
                                  damOfFemalesLact1, damOfFemalesLact2, damOfFemalesLact3, damOfFemalesLact4),
                      permEnvVar = permVar, year = startYear)
 
-  database = recordData(pop = eliteSires, year = startYear)
+  database = recordData(pop = eliteSires3, year = startYear)
+  database = recordData(database, pop = eliteSires2, year = startYear)
+  database = recordData(database, pop = eliteSires1, year = startYear)
+  database = recordData(database, pop = eliteSires, year = startYear)
+  database = recordData(database, pop = siresOfFemales3, year = startYear)
+  database = recordData(database, pop = siresOfFemales2, year = startYear)
+  database = recordData(database, pop = siresOfFemales1, year = startYear)
   database = recordData(database, pop = siresOfFemales, year = startYear)
-  database = recordData(database, pop = wtRams1, year = startYear)
   database = recordData(database, pop = wtRams2, year = startYear)
+  database = recordData(database, pop = wtRams1, year = startYear)
   database = recordData(database, pop = ntlMatingRams, year = startYear)
-  database = recordData(database, pop = damOfFemalesLact4, year = startYear, lactation = 4)
-  database = recordData(database, pop = damOfFemalesLact3, year = startYear, lactation = 3)
-  database = recordData(database, pop = damOfFemalesLact2, year = startYear, lactation = 2)
-  database = recordData(database, pop = damOfFemalesLact1, year = startYear, lactation = 1)
   database = recordData(database, pop = eliteEwesLact4, year = startYear, lactation = 4)
   database = recordData(database, pop = eliteEwesLact3, year = startYear, lactation = 3)
   database = recordData(database, pop = eliteEwesLact2, year = startYear, lactation = 2)
   database = recordData(database, pop = eliteEwesLact1, year = startYear, lactation = 1)
+  database = recordData(database, pop = damOfFemalesLact4, year = startYear, lactation = 4)
+  database = recordData(database, pop = damOfFemalesLact3, year = startYear, lactation = 3)
+  database = recordData(database, pop = damOfFemalesLact2, year = startYear, lactation = 2)
+  database = recordData(database, pop = damOfFemalesLact1, year = startYear, lactation = 1)
   database = recordData(database, pop = lambs, year = startYear)
 
-  save(x = database, file = "database.RData")
-
-  # Save image
-
-  save.image(file = paste("image_Year0_FillIn_simona.RData", sep = ""))
+  # Save current state
+  # save(x = database, file = "database.RData")
+  save.image(file = "image_Year0_FillIn.RData")
+  # load(file = "image_Year0_FillIn.RData")
+  # sourceFunctions()
 
 }
 
@@ -519,11 +528,12 @@ if (runSim == 1 | runSim == 2) {
     ntlMatingRams =  selectInd(pop = lambs[selNtlRams], nInd = nNaturalMatingRams,
                                use = use, sex = "M", famType = "M")
 
+    # Have to do it here since need to keep track of previous eliteSires in above steps
     eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
     siresOfFemales = c(siresOfFemales3, siresOfFemales2, siresOfFemales1)
 
     # ---- Ewes ----
-    print(paste("Working on ewes selection year", year, Sys.time(), "...", sep = " "))
+    print(paste("Working on Ewe selection year", year, Sys.time(), "...", sep = " "))
     # ---- ... Elite ewes ----
     ewesLact1 = c(damOfFemalesLact1, eliteEwesLact1)
     ewesLact2 = c(damOfFemalesLact2, eliteEwesLact2)
@@ -566,7 +576,7 @@ if (runSim == 1 | runSim == 2) {
     damOfFemalesLact1@pheno[,] = NA
 
     # ---- Lambs ----
-    print(paste("Working on lambs year", year, Sys.time(), "...", sep = " "))
+    print(paste("Working on Lambs year", year, Sys.time(), "...", sep = " "))
     matingPlan1 = cbind(c(eliteEwesLact1@id, eliteEwesLact2@id, eliteEwesLact3@id, eliteEwesLact4@id),
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
@@ -594,10 +604,16 @@ if (runSim == 1 | runSim == 2) {
 
     # ---- Data recording & EBV ----
 
+    database = recordData(database, pop = eliteSires3, year = yearFull)
+    database = recordData(database, pop = eliteSires2, year = yearFull)
+    database = recordData(database, pop = eliteSires1, year = yearFull)
     database = recordData(database, pop = eliteSires, year = yearFull)
+    database = recordData(database, pop = siresOfFemales3, year = yearFull)
+    database = recordData(database, pop = siresOfFemales2, year = yearFull)
+    database = recordData(database, pop = siresOfFemales1, year = yearFull)
     database = recordData(database, pop = siresOfFemales, year = yearFull)
-    database = recordData(database, pop = wtRams1, year = yearFull)
     database = recordData(database, pop = wtRams2, year = yearFull)
+    database = recordData(database, pop = wtRams1, year = yearFull)
     database = recordData(database, pop = ntlMatingRams, year = yearFull)
     database = recordData(database, pop = eliteEwesLact4, year = yearFull, lactation = 4)
     database = recordData(database, pop = eliteEwesLact3, year = yearFull, lactation = 3)
@@ -608,31 +624,45 @@ if (runSim == 1 | runSim == 2) {
     database = recordData(database, pop = damOfFemalesLact2, year = yearFull, lactation = 2)
     database = recordData(database, pop = damOfFemalesLact1, year = yearFull, lactation = 1)
     database = recordData(database, pop = lambs, year = yearFull)
-    save(x = database, file = "database.RData")
+    # save(x = database, file = "database.RData")
+    # load(file = "database.RData")
+    # sourceFunctions()
 
-    print(paste("Estimating EBV", year, Sys.time(), "...", sep = " "))
+    print(paste("Estimating breeding values", year, Sys.time(), "...", sep = " "))
 
-    OldDir = getwd()
-    Dir = paste("BLUP", year, sep = "_")
-    unlink(Dir, recursive = TRUE)
-    dir.create(path = Dir)
-    setwd(dir = Dir)
+    # We will remove male lambs from the evaluation - those that will never
+    #   contribute to next generations
+    sel = database$General$Pop == "lambs" & database$General$Sex == "M"
+    maleLambs = database$General[sel, "IId"]
+    sel = database$General$Pop %in% c("wtRams1", "ntlMatingRams")
+    reproMales = database$General[sel, "IId"]
+    culledMaleLambs = maleLambs$IId[!maleLambs$IId %in% reproMales$IId]
+    removeCulledMaleLambs = row.names(SP$pedigree) %in% culledMaleLambs
+    # sum(removeCulledMaleLambs); sum(!removeCulledMaleLambs)
 
+    variances = list(varPE = permVar,
+                     varA  = addVar,
+                     varE  = resVar)
+    # TODO
+    # if (model == "X") {
+    #   variances = list()
+    # }
     pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
                                     database = database,
-                                    trait = 1,
-                                    vars = list(varA  = addVar,
-                                                varPE = permVar,
-                                                varHY = herdYearVar,
-                                                varE  = resVar))
-
-    setwd(dir = OldDir)
+                                    vars = variances,
+                                    removeFromEvaluation = removeCulledMaleLambs)
 
     # Set EBVs for every population
+    eliteSires3       = setEbv(eliteSires3, ebv = pedEbv)
+    eliteSires2       = setEbv(eliteSires2, ebv = pedEbv)
+    eliteSires1       = setEbv(eliteSires1, ebv = pedEbv)
     eliteSires        = setEbv(eliteSires, ebv = pedEbv)
+    siresOfFemales3   = setEbv(siresOfFemales3, ebv = pedEbv)
+    siresOfFemales2   = setEbv(siresOfFemales2, ebv = pedEbv)
+    siresOfFemales1   = setEbv(siresOfFemales1, ebv = pedEbv)
     siresOfFemales    = setEbv(siresOfFemales, ebv = pedEbv)
-    wtRams1           = setEbv(wtRams1, ebv = pedEbv)
     wtRams2           = setEbv(wtRams2, ebv = pedEbv)
+    wtRams1           = setEbv(wtRams1, ebv = pedEbv)
     ntlMatingRams     = setEbv(ntlMatingRams, ebv = pedEbv)
     eliteEwesLact4    = setEbv(eliteEwesLact4, ebv = pedEbv)
     eliteEwesLact3    = setEbv(eliteEwesLact3, ebv = pedEbv)
@@ -642,13 +672,25 @@ if (runSim == 1 | runSim == 2) {
     damOfFemalesLact3 = setEbv(damOfFemalesLact3, ebv = pedEbv)
     damOfFemalesLact2 = setEbv(damOfFemalesLact2, ebv = pedEbv)
     damOfFemalesLact1 = setEbv(damOfFemalesLact1, ebv = pedEbv)
-    lambs             = setEbv(lambs, ebv = pedEbv)
+    # ... we could use this, but we have excluded some culled lambs from the evaluation
+    #     so we will just calculate parent average for all lambs - this works for
+    #     pedigree BLUP, but not for genomic BLUP (if some lambs would be genotyped)
+    # lambs             = setEbv(lambs, ebv = pedEbv)
+    selM = match(x = lambs@mother, table = pedEbv$IId)
+    selF = match(x = lambs@father, table = pedEbv$IId)
+    lambs@ebv = as.matrix((pedEbv[selM, -1] + pedEbv[selF, -1]) / 2)
 
     # Data recording
+    database = setDatabaseEbv(database, pop = eliteSires3)
+    database = setDatabaseEbv(database, pop = eliteSires2)
+    database = setDatabaseEbv(database, pop = eliteSires1)
     database = setDatabaseEbv(database, pop = eliteSires)
+    database = setDatabaseEbv(database, pop = siresOfFemales3)
+    database = setDatabaseEbv(database, pop = siresOfFemales2)
+    database = setDatabaseEbv(database, pop = siresOfFemales1)
     database = setDatabaseEbv(database, pop = siresOfFemales)
-    database = setDatabaseEbv(database, pop = wtRams1)
     database = setDatabaseEbv(database, pop = wtRams2)
+    database = setDatabaseEbv(database, pop = wtRams1)
     database = setDatabaseEbv(database, pop = ntlMatingRams)
     database = setDatabaseEbv(database, pop = eliteEwesLact4)
     database = setDatabaseEbv(database, pop = eliteEwesLact3)
@@ -665,23 +707,45 @@ if (runSim == 1 | runSim == 2) {
 
     # ---- Summarising EBV ----
 
-    correlation = data.frame( eliteSires = cor(eliteSires@ebv, eliteSires@gv),
-                              siresOfFemales = cor(siresOfFemales@ebv, siresOfFemales@gv),
-                              eliteEwes = cor(eliteEwes@ebv, eliteEwes@gv),
-                              damOfFemales = cor(damOfFemales@ebv, damOfFemales@gv),
-                              wtRams1 = cor(wtRams1@ebv, wtRams1@gv),
-                              wtRams2 = cor(wtRams2@ebv, wtRams2@gv),
-                              ntlMatingRams = cor(ntlMatingRams@ebv, ntlMatingRams@gv),
-                              row.names = paste("year", year, sep="")
-    )
-    colnames(correlation) = c("eliteSires", "siresOfFemales", "eliteEwes", "damOfFemales", "wtRams1", "wtRams2", "ntlMatingRams")
-    write.table(x = correlation, file = paste("correlation", year, sep=""))
+    correlation = data.frame(year = year,
+                             eliteSires3 = ebvAccuracy(eliteSires3),
+                             eliteSires2 = ebvAccuracy(eliteSires2),
+                             eliteSires1 = ebvAccuracy(eliteSires1),
+                             eliteSires = ebvAccuracy(eliteSires),
+                             siresOfFemales3 = ebvAccuracy(siresOfFemales3),
+                             siresOfFemales2 = ebvAccuracy(siresOfFemales2),
+                             siresOfFemales1 = ebvAccuracy(siresOfFemales1),
+                             siresOfFemales = ebvAccuracy(siresOfFemales),
+                             wtRams2 = ebvAccuracy(wtRams2),
+                             wtRams1 = ebvAccuracy(wtRams1),
+                             ntlMatingRams = ebvAccuracy(ntlMatingRams),
+                             eliteEwesLact4 = ebvAccuracy(eliteEwesLact4),
+                             eliteEwesLact3 = ebvAccuracy(eliteEwesLact3),
+                             eliteEwesLact2 = ebvAccuracy(eliteEwesLact2),
+                             eliteEwesLact1 = ebvAccuracy(eliteEwesLact1),
+                             eliteEwes = ebvAccuracy(eliteEwes),
+                             damOfFemalesLact4 = ebvAccuracy(damOfFemalesLact4),
+                             damOfFemalesLact3 = ebvAccuracy(damOfFemalesLact3),
+                             damOfFemalesLact2 = ebvAccuracy(damOfFemalesLact2),
+                             damOfFemalesLact1 = ebvAccuracy(damOfFemalesLact1),
+                             damOfFemales = ebvAccuracy(damOfFemales),
+                             lambs = ebvAccuracy(lambs))
+    if (year == 1) {
+      add = FALSE
+    } else {
+      add = TRUE
+    }
+    write.table(x = correlation, file = "correlation.txt", append = add, col.names = !add)
 
     # Save image
     save.image(file = paste("image_Year", year, "_PT.RData", sep = ""))
+    # load(file = paste("image_Year", year, "_PT.RData", sep = ""))
+    # sourceFunctions()
   }
 }
 
 save.image(file = paste("burnin", year, "_PT.RData", sep = ""))
+# load(file = paste("burnin", year, "_PT.RData", sep = ""))
+# sourceFunctions()
 
 setwd(dir = mainDir)

@@ -1,4 +1,4 @@
-# source('functions_burnin.R', echo = TRUE)
+# source("functions_burnin.R", echo = TRUE)
 
 sampleHerdYearEffect = function(n) {
   as.matrix(rnorm(n = n, sd = sqrt(herdYearVar)))
@@ -80,10 +80,10 @@ setPhenoEwe = function(pop, varE, mean, herds, yearEffect) {
   pop = setPheno(pop, varE = varE) # genetics + environment/residual
   herd = getHerd(pop)
   if (!is.matrix(mean)) {
-    mean <- as.matrix(mean)
+    mean = as.matrix(mean)
   }
   if (!is.matrix(yearEffect)) {
-    yearEffect <- as.matrix(yearEffect)
+    yearEffect = as.matrix(yearEffect)
   }
   pop@pheno = rep(1, times = nInd(pop)) %*% mean +
     pop@pheno +
@@ -100,7 +100,8 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
     yob = getYob(pop)
     herd = getHerd(pop)
     herdYear = paste(herd, year, sep = "_")
-    tmp = list(General = data.table(Pop         = popObject,
+    tmp = list(General = data.table(IIdPop      = paste0(pop@id, "-", popObject),
+                                    Pop         = popObject,
                                     Label       = label,
                                     IId         = pop@id,
                                     FId         = pop@father,
@@ -118,9 +119,9 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
       tmp$Ebv = matrix(data = as.numeric(NA),
                        nrow = nrow(pop@gv), ncol = ncol(pop@gv))
     }
-    row.names(tmp$Pheno) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
-    row.names(tmp$Gv) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
-    row.names(tmp$Ebv) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
+    row.names(tmp$Pheno) = tmp$General$IIdPop
+    row.names(tmp$Gv) = tmp$General$IIdPop
+    row.names(tmp$Ebv) = tmp$General$IIdPop
     if (is.null(database)) {
       database = tmp
     } else {
@@ -143,207 +144,126 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
   }
 }
 
-
-estimateBreedingValues = function(pedigree, database, genotypes = NULL,
-                                  trait = 1, na = -999, vars, svd = FALSE,
-                                  nCoreSvd = NULL, genVarPropSvd = NULL, ...) {
-
-  # Estimate breeding values with other software - at the moment this is geared
-  # towards Mix99, but we could have different code base for Mix99 and blupf90, say.
-  # Pedigree SP$pedigree object from AlphaSimR
+estimateBreedingValues = function(pedigree, database,
+                                  trait = 1, na = -999, vars,
+                                  removeFromEvaluation = NULL,
+                                  inbLoadModel = FALSE) {
+  # Estimate breeding values with external software - here we use blupf90.
+  # pedigree SP$pedigree object from AlphaSimR
   # database list
   #   * General data.table with columns IId, Year, Herd, HerdYear
-  #   * Pheno matrix
-  #   * Gv matrix
-  #   * Ebv matrix
-  # genotypes character, string of genotype file name
+  #   * Pheno matrix with row.names equal to IId
+  #   * Gv matrix with row.names equal to IId
+  #   * Ebv matrix with row.names equal to IId
   # trait numeric, indicating which traits to analyse (one or more values,
   #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2
   # na value used to denote missing value, say -999
-  # vars list, variance components VarA, VarPE, VarHY, and VarE - vectors or matrices
-  # svd logical, sould we run SVD ssGBLUP
+  # vars list, variance components VarPE, VarA, VarIL, and VarE - vectors or matrices
+  # removeFromEvaluation logical, vector of length equal to nrow(pedigree)
+  #   indicating which animals should be removed from the evaluation (to speed
+  #   things up).
 
-  # Prepare pedigree file
-  pedigree = cbind(IId = rownames(pedigree),
-                   FId = pedigree[, "father"],
-                   MId = pedigree[, "mother"])
-  write.table(
-    x = pedigree,
-    file = "pedigree",
-    quote = FALSE,
-    row.names = FALSE,
-    col.names = FALSE,
-    sep = " "
-  )
+  # ---- Prepare pedigree file ----
+  pedigree = data.table(IId = rownames(pedigree),
+                        FId = pedigree[, "father"],
+                        MId = pedigree[, "mother"])
+  # Remove young males that will never have any progeny
+  if (!is.null(removeFromEvaluation)) {
+    pedigree = pedigree[!removeFromEvaluation, ]
+  }
+  fwrite(x = pedigree, file = "pedigree.txt", quote = FALSE,
+    row.names = FALSE, col.names = FALSE, sep = " ")
   rm(pedigree)
 
-  # Prepare phenotype file
-  nTrait = length(trait)
-  multiTrait = nTrait > 1
-  database$Pheno = database$Pheno[, trait, drop = FALSE]
-  tmp = is.na(database$Pheno)
-  database$Pheno[tmp] = na
-  sel = rowSums(!tmp) > 0
-  phenotypes = cbind(database$General[sel,],
-                     database$Pheno[sel, trait])
-  colNames = colnames(phenotypes)
-  colTrait = paste("Pheno", trait, sep = "")
-  n = length(colNames)
-  n = seq(from = n - nTrait + 1,
-          to = n,
-          by = 1)
-  colNames[n] = colTrait
-  colnames(phenotypes) = colNames
-  phenotypes$HerdYearId = as.numeric(factor(phenotypes$HerdYear))
-  sel = c("IId", "Year", "Herd", "Lactation",  colTrait)
-  fwrite(
-    x = phenotypes[, ..sel],
-    file = "performance",
-    sep = " ",
-    col.names = FALSE
-  )
+  # ---- Prepare phenotype file ----
+  sel = rowSums(!is.na(database$Pheno[, trait, drop = FALSE])) > 0
+  tmp = database$Pheno[sel, , drop = FALSE]
+  phenotypes = data.table(IIdPop = row.names(tmp))
+  phenotypes = cbind(phenotypes, tmp)
+  colTrait = paste0("Pheno", trait)
+  colnames(phenotypes) = c("IIdPop", colTrait)
+  phenotypes = merge(x = phenotypes,
+                     y = database$General[, c("IIdPop", "IId", "Year", "Herd", "Lactation")])
+  sel = c("IId", "Year", "Herd", "Lactation", colTrait)
+  fwrite(x = phenotypes[, ..sel], file = "phenotype.txt", quote = FALSE,
+         row.names = FALSE, col.names = FALSE, sep = " ")
   rm(phenotypes)
 
-  ## Count number of traits
-  nTrait <- length(trait)
+  # ---- Prepare parameter file ----
+  sink(file = "renum.par", type = "output")
+  cat("# Renumf90 parameter file\n",
+      "# herd-year\n",
+      "COMBINE 6 2 3\n",
+      "DATAFILE\n",
+      "phenotype.txt\n",
+      "TRAITS\n",
+      "# milk yield\n",
+      "5\n",
+      "FIELDS_PASSED TO OUTPUT\n",
+      "# id herd year lactation\n",
+      "1 2 3 4\n",
+      "WEIGHT(S)\n",
+      "\n",
+      "RESIDUAL_VARIANCE\n",
+      vars$varE, "\n",
+      "# herd\n",
+      "EFFECT\n",
+      "3 cross alpha\n",
+      "# year\n",
+      "EFFECT\n",
+      "2 cross alpha\n",
+      "# lactation\n",
+      "EFFECT\n",
+      "4 cross alpha\n",
+      "# herd-year\n",
+      "EFFECT\n",
+      "6 cross alpha\n",
+      "#animal\n",
+      "EFFECT\n",
+      "1 cross alpha\n",
+      "RANDOM\n",
+      "animal\n",
+      "OPTIONAL\n",
+      "pe\n",
+      "FILE\n",
+      "pedigree.txt\n",
+      "FILE_POS\n",
+      "1 2 3 0 0\n",
+      "PED_DEPTH\n",
+      "0\n",
+      "INBREEDING\n",
+      "pedigree.txt\n",
+      "(CO)VARIANCES\n",
+      vars$varA, "\n",
+      "(CO)VARIANCES_PE\n",
+      vars$varPE, "\n",
+      "OPTION origID\n",
+      "OPTION saveAinv\n",
+      "OPTION saveAinvOrig\n",
+    sep = "")
+  sink()
 
-  # Create variance-covariance file
-  if (nTrait == 1) {
-    blupf90Var = paste(
-      paste("1 1 1", vars$varHY),
-      paste("2 1 1", vars$varPE),
-      paste("3 1 1", vars$varA),
-      paste("4 1 1", vars$varE),
-      sep = "\n"
-    )
-    writeLines(text = blupf90Var, con = "blupf90.var", sep = "\n")
-  } else if (nTrait == 2) {
-    blupf90Var = paste(
-      paste("1 1 1", vars$varHY[1]),
-      paste("1 2 2", vars$varHY[2]),
-      paste("1 2 1", (
-        diag(sqrt(vars$varHY)) %*% vars$corHY %*% diag(sqrt(vars$varHY))
-      )[1, 2]),
-      paste("2 1 1", vars$varPE[1]),
-      paste("2 2 2", vars$varPE[2]),
-      paste("2 2 1", (
-        diag(sqrt(vars$varPE)) %*% vars$corPE %*% diag(sqrt(vars$varPE))
-      )[1, 2]),
-      paste("3 1 1", vars$varA[1]),
-      paste("3 2 2", vars$varA[2]),
-      paste("3 2 1", (
-        diag(sqrt(vars$varA)) %*% vars$corA %*% diag(sqrt(vars$varA))
-      )[1, 2]),
-      paste("4 1 1", vars$varE[1]),
-      paste("4 2 2", vars$varE[2]),
-      paste("4 2 1", (
-        diag(sqrt(vars$varE)) %*% vars$corE %*% diag(sqrt(vars$varE))
-      )[1, 2]),
-      sep = "\n"
-    )
-    writeLines(text = blupf90Var, con = "blupf90.var", sep = "\n")
-  } else if (nTrait > 2)
-    (stop("You can not simulate more than two traits scenario."))
+  # ---- Run the command ----
+  system(command = "echo renum.par | renumf90 | tee renum.log")
+  system(command = "echo renf90.par | blupf90+ | tee blup.log")
 
-  ## Prepare parameter file
-  prepare_par <- function() {
-    sink("renum.par", type = "output")
-    writeLines(
-      "#renumf90 parametar file
-            # herd
-             COMBINE 6 3
-            # year
-             COMBINE 7  2
-            # lactation
-            COMBINE 8 4
-            # herd year
-            COMBINE 9 3 2
-            DATAFILE
-            performance
-            TRAITS
-            # milk yield
-            5
-            FIELDS_PASSED TO OUTPUT
-            # official_animal_id cheptel campagne
-            1 2 3
-            WEIGHT(S)
-
-            RESIDUAL_VARIANCE
-            1500
-            # cheptel
-            EFFECT
-            6 cross alpha
-            # campagne
-            EFFECT
-            7 cross alpha
-            # lactation
-            EFFECT
-            8 cross alpha
-            # herd year
-            EFFECT
-            9 cross alpha
-            #animal
-            EFFECT
-            1 cross alpha
-            RANDOM
-            animal
-            OPTIONAL
-            pe
-            FILE
-            pedigree
-            FILE_POS
-            1 2 3 0 0
-            PED_DEPTH
-            0
-            INBREEDING
-            pedigree
-            (CO)VARIANCES
-            1200
-            (CO)VARIANCES_PE
-            500
-            OPTION origID
-            OPTION saveAinv
-            OPTION saveAinvOrig
-                         "
-    )
-    sink()
-  }
-
-  prepare_par()
-
-  system(command = "echo renum.par | /usr/local/bin/renumf90 | tee renum.log")
-  system(command = "echo renf90.par | /usr/local/bin/blupf90+ | tee blup.log")
-
-  blup_sol = read_table(
-    "solutions.orig",
-    col_names = FALSE,
-    skip = 1,
+  # ---- Read in the solutions ----
+  blup_sol = read_table(file = "solutions.orig",
     col_types = cols(
       .default = col_double(),
-      X1 = col_double(),
-      X2 = col_double(),
-      X3 = col_double(),
-      X4 = col_double(),
-      X5 = col_double()
-    )
-  )
-  colnames(blup_sol) = c("Trait", "Effect", "Level", "IId", "Solution")
+      trait = col_integer(),
+      effect = col_integer(),
+      level = col_integer(),
+      original_id = col_character(),
+      solution = col_double()))
 
-  ## Extracting EBV from the file
+  # ---- Extracting EBV from the file ----
   ebv_ind = blup_sol %>%
-    filter(Trait == 1 &
-             Effect == 5) %>%    # Change effect number to your animal effect number
-    select("IId", "Solution")  # Instead of levels you will use whatever the column with orig ID is (same above)
+    filter(effect == 5) %>%            # Change effect number to your animal effect number
+    select("original_id", "solution")
   colnames(ebv_ind) = c("IId", "EBV")
-  library(dplyr)
-  # attach(ebv_ind)
-  # ebv_ind <- ebv_ind[order(IId),]
-  ebv_ind <- arrange(ebv_ind, IId)
   return(ebv_ind)
 }
-
-# renf90.dat
-# milk_yield | effect1 | effect2 | effect3  | effect4 | new_id | old_id | year | herd
 
 setEbv = function(pop, ebv, trait = 1) {
   # Set EBV for a population
@@ -364,12 +284,14 @@ setEbv = function(pop, ebv, trait = 1) {
 }
 
 setDatabasePheno = function(database, pop, trait = 1) {
-  # Takes phenotypes and adds/updates them in database
+  # Takes phenotypes from the pop object and adds/updates them in database
   # database list
   # pop Pop
   # trait numeric, indicating which traits to set (one or more values,
   #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2)
-  database$Pheno[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@pheno[, trait]
+  # sel = getIIdPop(pop, popObject = "damOfFemalesLact4")
+  sel = getIIdPop(pop, popObject = deparse(substitute(pop)))
+  database$Pheno[sel, trait] = pop@pheno[, trait]
   return(database)
 }
 
@@ -379,6 +301,12 @@ setDatabaseEbv = function(database, pop = NULL, trait = 1) {
   # pop Pop
   # trait numeric, indicating which traits to set (one or more values,
   #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2)
-  database$Ebv[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@ebv[, trait]
+  # sel = getIIdPop(pop, popObject = "eliteSires")
+  sel = getIIdPop(pop, popObject = deparse(substitute(pop)))
+  database$Ebv[sel, trait] = pop@ebv[, trait]
   return(database)
+}
+
+ebvAccuracy = function(pop, digits = 2 ) {
+  round(cor(pop@ebv, pop@gv, use = "complete.obs")[1, 1], digits = digits)
 }
