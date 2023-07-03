@@ -1,22 +1,12 @@
-#  source('functions_burnin.R',echo=T)
+# source('functions_burnin.R', echo = TRUE)
 
 sampleHerdYearEffect = function(n) {
-  cbind(rnorm(n = n, sd = sqrt(herdYearVar)))
+  as.matrix(rnorm(n = n, sd = sqrt(herdYearVar)))
 }
 
 sampleYearEffect = function(n = 1) {
-  c(rnorm(n = n, sd = sqrt(yearVar)))
+  as.matrix(rnorm(n = n, sd = sqrt(yearVar)))
 }
-
-# sampleHerdYearEffect = function(n) {
-#   cbind(rnorm(n = n, sd = sqrt(herdYearVar[1])),
-#         rnorm(n = n, sd = sqrt(herdYearVar[2])))
-# }
-# 
-# sampleYearEffect = function(n = 1) {
-#   c(rnorm(n = n, sd = sqrt(yearVar[1])),
-#     rnorm(n = n, sd = sqrt(yearVar[2])))
-# }
 
 getHerd = function(pop) {
   # Getting herd information for individuals of a population
@@ -36,7 +26,13 @@ getPermEnvEffect = function(pop) {
   return(ret)
 }
 
-
+getIIdPop = function(pop, popObject = NULL) {
+  if (is.null(popObject)) {
+    popObject = deparse(substitute(pop))
+  }
+  ret = paste(pop@id, popObject, sep = "-")
+  return(ret)
+}
 
 fillInMisc = function(pop, mothers = NULL, herds = NULL, permEnvVar = NULL,
                       year = NA) {
@@ -72,25 +68,8 @@ fillInMisc = function(pop, mothers = NULL, herds = NULL, permEnvVar = NULL,
   return(pop)
 }
 
-createTraitMask = function(pop, herdsWithTrait2 = NULL) {
-  # Create a logical trait mask - which animal will not have which trait
-  # pop population
-  # herdsWithTrait2 character, herds with that will record trait 2 (when NULL
-  #   all herds/animals will have trait 2 mask set to TRUE - will not have
-  #   trait 2 phenotype)
-  traitMask = matrix(data = FALSE, nrow = nInd(pop), ncol = pop@nTraits)
-  traitMask[, 1] = FALSE # don't mask the pheno for trait 1
-  # traitMask[, 2] = TRUE # mask the pheno for trait 2
-  # if (!is.null(herdsWithTrait2)) {
-  #   herd = getHerd(pop)
-  #   sel = herd %in% herdsWithTrait2
-  #   traitMask[sel, 2] = FALSE # but not for these herds
-  # }
-  # return(traitMask)
-}
-
-setPhenoEwe = function(pop, varE, mean, herds, yearEffect){ #, traitMask) {
-  # Create a complex cow phenotype
+setPhenoEwe = function(pop, varE, mean, herds, yearEffect) {
+  # Create a complex ewe phenotype
   # pop population
   # varE numeric, environmental variance
   # mean numeric, population mean (such as lactation mean)
@@ -98,31 +77,21 @@ setPhenoEwe = function(pop, varE, mean, herds, yearEffect){ #, traitMask) {
   #   herd-year effect (vector or matrix) nodes
   # yearEffect numeric, year effect (scalar or vector)
   # traitMask matrix, specify which animals should have which pheno NA
-  pop = setPheno(pop, varE = varE)
+  pop = setPheno(pop, varE = varE) # genetics + environment/residual
   herd = getHerd(pop)
-  pop@pheno = mean + pop@pheno +
-    yearEffect +
+  if (!is.matrix(mean)) {
+    mean <- as.matrix(mean)
+  }
+  if (!is.matrix(yearEffect)) {
+    yearEffect <- as.matrix(yearEffect)
+  }
+  pop@pheno = rep(1, times = nInd(pop)) %*% mean +
+    pop@pheno +
+    rep(1, times = nInd(pop)) %*% yearEffect +
     herds$herdEffect[herd, ] +
     herds$herdYearEffect[herd, ] +
     getPermEnvEffect(pop)
-  # if (any(traitMask)) {
-  #   pop@pheno[traitMask] = NA
-  # }
   return(pop)
-}
-
-setDatabasePheno = function(database, pop = NULL, trait = 1) {
-  # Takes phenotypes and adds/updates them in database
-  # database list
-  # trait numeric, indicating which traits to set (one or more values,
-  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2
-  if(!is.null(pop)) {
-    popName = deparse(substitute(pop))
-    matchId <- match(x = paste(database$General$IId, database$General$Pop),
-                     table = paste(pop@id, rep(popName, 1, length(pop@id))), nomatch = 0)
-    database$Pheno[matchId != 0, trait] <- pop@pheno[matchId, trait]
-  }
-  return(database)
 }
 
 recordData = function(database = NULL, pop = NULL, year, lactation = NA, label = NA) {
@@ -149,6 +118,9 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
       tmp$Ebv = matrix(data = as.numeric(NA),
                        nrow = nrow(pop@gv), ncol = ncol(pop@gv))
     }
+    row.names(tmp$Pheno) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
+    row.names(tmp$Gv) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
+    row.names(tmp$Ebv) = paste(tmp$General$IId, tmp$General$Pop, sep = "-")
     if (is.null(database)) {
       database = tmp
     } else {
@@ -175,7 +147,7 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
 estimateBreedingValues = function(pedigree, database, genotypes = NULL,
                                   trait = 1, na = -999, vars, svd = FALSE,
                                   nCoreSvd = NULL, genVarPropSvd = NULL, ...) {
-  
+
   # Estimate breeding values with other software - at the moment this is geared
   # towards Mix99, but we could have different code base for Mix99 and blupf90, say.
   # Pedigree SP$pedigree object from AlphaSimR
@@ -190,7 +162,7 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
   # na value used to denote missing value, say -999
   # vars list, variance components VarA, VarPE, VarHY, and VarE - vectors or matrices
   # svd logical, sould we run SVD ssGBLUP
-  
+
   # Prepare pedigree file
   pedigree = cbind(IId = rownames(pedigree),
                    FId = pedigree[, "father"],
@@ -204,7 +176,7 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
     sep = " "
   )
   rm(pedigree)
-  
+
   # Prepare phenotype file
   nTrait = length(trait)
   multiTrait = nTrait > 1
@@ -231,10 +203,10 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
     col.names = FALSE
   )
   rm(phenotypes)
-  
+
   ## Count number of traits
   nTrait <- length(trait)
-  
+
   # Create variance-covariance file
   if (nTrait == 1) {
     blupf90Var = paste(
@@ -272,7 +244,7 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
     writeLines(text = blupf90Var, con = "blupf90.var", sep = "\n")
   } else if (nTrait > 2)
     (stop("You can not simulate more than two traits scenario."))
-  
+
   ## Prepare parameter file
   prepare_par <- function() {
     sink("renum.par", type = "output")
@@ -295,7 +267,7 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
             # official_animal_id cheptel campagne
             1 2 3
             WEIGHT(S)
-            
+
             RESIDUAL_VARIANCE
             1500
             # cheptel
@@ -336,12 +308,12 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
     )
     sink()
   }
-  
+
   prepare_par()
-  
+
   system(command = "echo renum.par | /usr/local/bin/renumf90 | tee renum.log")
   system(command = "echo renf90.par | /usr/local/bin/blupf90+ | tee blup.log")
-  
+
   blup_sol = read_table(
     "solutions.orig",
     col_names = FALSE,
@@ -356,7 +328,7 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
     )
   )
   colnames(blup_sol) = c("Trait", "Effect", "Level", "IId", "Solution")
-  
+
   ## Extracting EBV from the file
   ebv_ind = blup_sol %>%
     filter(Trait == 1 &
@@ -375,34 +347,38 @@ estimateBreedingValues = function(pedigree, database, genotypes = NULL,
 
 setEbv = function(pop, ebv, trait = 1) {
   # Set EBV for a population
-  # pop population
+  # pop Pop
   # ebv data.table with columns IId and Ebv (one or more columns)
   # trait numeric, indicating which traits to set (one or more values
-  #       so, with two traits options are: trait = 1, trait = 2, or trait = 1:2
-  if (!is.null(pop)) {
-    matchId = match(x = pop@iid, table = ebv$IId)
-    if (ncol(pop@ebv) == 0) {
-      pop@ebv = matrix(data = NA,
-                       nrow = pop@nInd,
-                       ncol = pop@nTraits)
-    }
-    traitDataTableCol = 1 + trait
-    # pop@ebv[, trait] = as.matrix(ebv[matchId, ..traitDataTableCol]) # be careful ebv is data.table
-    pop@ebv[, trait] = as.matrix(ebv[matchId, traitDataTableCol]) # be careful ebv is data.frame
+  #   so, with two traits options are: trait = 1, trait = 2, or trait = 1:2)
+  if (ncol(pop@ebv) == 0) {
+    pop@ebv = matrix(data = NA,
+                     nrow = pop@nInd,
+                     ncol = pop@nTraits)
   }
+  matchId = match(x = pop@id, table = ebv$IId)
+  traitDataTableCol = 1 + trait
+  # pop@ebv[, trait] = as.matrix(ebv[matchId, ..traitDataTableCol]) # be careful ebv is data.table
+  pop@ebv[, trait] = as.matrix(ebv[matchId, traitDataTableCol]) # be careful ebv is data.frame
   return(pop)
+}
+
+setDatabasePheno = function(database, pop, trait = 1) {
+  # Takes phenotypes and adds/updates them in database
+  # database list
+  # pop Pop
+  # trait numeric, indicating which traits to set (one or more values,
+  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2)
+  database$Pheno[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@pheno[, trait]
+  return(database)
 }
 
 setDatabaseEbv = function(database, pop = NULL, trait = 1) {
   # Takes EBV from the pop object and adds/updates them in database
   # database list
+  # pop Pop
   # trait numeric, indicating which traits to set (one or more values,
-  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2
-  if(!is.null(pop)) {
-    popName = deparse(substitute(pop))
-    matchId <- match(x = paste(database$General$IId, database$General$Pop),
-                     table = paste(pop@id, rep(popName, 1, length(pop@id))), nomatch = 0)
-    database$Ebv[matchId != 0, trait] <- pop@ebv[matchId, trait]
-  }
+  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2)
+  database$Ebv[getIIdPop(pop, popObject = deparse(substitute(pop))), trait] <- pop@ebv[, trait]
   return(database)
 }
