@@ -1,4 +1,4 @@
-# source("functions_burnin.R", echo = TRUE)
+# source(file = "functions.R")
 
 sampleHerdYearEffect = function(n) {
   as.matrix(rnorm(n = n, sd = sqrt(herdYearVar)))
@@ -95,6 +95,11 @@ setPhenoEwe = function(pop, varE, mean, herds, yearEffect) {
 }
 
 recordData = function(database = NULL, pop = NULL, year, lactation = NA, label = NA) {
+  # Record data from a population into a database
+  # This database could be improved, but the logic here is that we are saving
+  # records from an individual over the course of it's life so we will have multiple
+  # records from different life stages. We will also be saving multiple estimates
+  # of breeding values so we can see how these change over life stages!
   if (!is.null(pop)) {
     popObject = deparse(substitute(pop))
     yob = getYob(pop)
@@ -125,14 +130,10 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
     if (is.null(database)) {
       database = tmp
     } else {
-      database = list(General = rbind(database$General,
-                                      tmp$General),
-                      Pheno = rbind(database$Pheno,
-                                    tmp$Pheno),
-                      Gv    = rbind(database$Gv,
-                                    tmp$Gv),
-                      Ebv   = rbind(database$Ebv,
-                                    tmp$Ebv))
+      database = list(General = rbind(database$General, tmp$General),
+                      Pheno = rbind(database$Pheno, tmp$Pheno),
+                      Gv    = rbind(database$Gv, tmp$Gv),
+                      Ebv   = rbind(database$Ebv, tmp$Ebv))
     }
     return(database)
   } else { # pop is NULL
