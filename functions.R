@@ -1,11 +1,7 @@
 # source(file = "functions.R")
 
-sampleHerdYearEffect = function(n) {
-  as.matrix(rnorm(n = n, sd = sqrt(herdYearVar)))
-}
-
-sampleYearEffect = function(n = 1) {
-  as.matrix(rnorm(n = n, sd = sqrt(yearVar)))
+sampleEffect = function(n, var) {
+  as.matrix(rnorm(n = n, sd = sqrt(var)))
 }
 
 getHerd = function(pop) {
@@ -162,7 +158,9 @@ estimateBreedingValues = function(pedigree, database,
   # vars list, variance components VarPE, VarA, VarIL, and VarE - vectors or matrices
   # removeFromEvaluation logical, vector of length equal to nrow(pedigree)
   #   indicating which animals should be removed from the evaluation (to speed
-  #   things up).
+  #   things up)
+  # inbLoadModel logical, are we running the standard model or model with
+  #   inbreeding depression load (not yet used)
 
   # ---- Prepare pedigree file ----
   pedigree = data.table(IId = rownames(pedigree),
