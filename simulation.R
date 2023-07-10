@@ -138,10 +138,8 @@ NM_prolificacy      = 1.4                                                       
 AI_Fertility        = 0.6                                                          # fertility in Artificial Insemination (AI)
 AI_prolificacy      = 1.6                                                          # prolificacy in AI
 nLambs              = trunc(((NM_Fertility * NM_prolificacy * survRate +
-                                AI_Fertility * AI_prolificacy * survRate)) * nEwes / 2) # no. of lambs (TODO: why divide by 2?)
+                                AI_Fertility * AI_prolificacy * survRate)) * nEwes / 2) # no. of lambs (TODO: why divide by 2? because 50% the ewes are naturally mated and the other 50 are inseminated)
 
-nYngFemales         = 0.48 * nLambs                                                # no. of successful born lambs (TODO: not used?)
-nYngRams            = 900                                                          # no. of young rams for progeny testing (TODO: not used?)
 nWtRams1            = 150                                                          # no. of waiting rams for progeny testing
 nWtRams2            = 150                                                          # no. of waiting rams for progeny testing
 nEliteSires1        = 10                                                           # no. of elite sires selected every year (for the x-th year of AI)
@@ -530,11 +528,9 @@ if (burnin) {
   damsOfFemalesLact1 = fillInMisc(pop = damsOfFemalesLact1, year = startYear - 1,
                                   herds = herds, permEnvVar = permVar)
 
-  # TODO: is this OK
   damsOfFemales = c(damsOfFemalesLact4, damsOfFemalesLact3, damsOfFemalesLact2, damsOfFemalesLact1)
 
   # Lambs
-  # TODO: is it ok to use eliteEwes@id here?
   matingPlan1 = cbind(eliteEwes@id,
                       sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
@@ -546,21 +542,18 @@ if (burnin) {
 
   n = nDamsOfFemales - (n1 - nEliteEwes)
   damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
-  matingPlan3 = cbind(damsOfFemalesIdForRest,
-                      sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
-  
-  # TODO: should the %usage of siresOfFemales, wtRams1, or ntlMatingRams vary?
   # matingPlan3 = cbind(damsOfFemalesIdForRest,
-  #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
-  #                     sample(wtRams1@id, size = n3, replace = TRUE),
-  #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
+  #                     sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
+  # TODO: IS it good like this?
+  matingPlan3 = cbind(damsOfFemalesIdForRest,
+                      sample(c(siresOfFemales@id, size = n2, replace = TRUE),
+                      sample(wtRams1@id, size = n3, replace = TRUE),
+                      sample(ntlMatingRams@id, size = n4, replace = TRUE)))
   
   matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
-  # TODO: ok to use c(eliteEwes, damsOfFemales) here?
   lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                      males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
                      crossPlan = matingPlan)
-  # TODO: ok to use c(eliteEwes, damsOfFemales) here?
   lambs = fillInMisc(pop = lambs,
                      mothers = c(eliteEwes, damsOfFemales),
                      permEnvVar = permVar, year = startYear)
@@ -649,6 +642,114 @@ if (burnin) {
     database = setDatabasePheno(database, pop = damsOfFemalesLact2)
     database = setDatabasePheno(database, pop = damsOfFemalesLact1)
 
+    # We will remove male lambs from the evaluation - those that will never
+    #   contribute to next generations
+    sel = database$General$Pop == "lambs" & database$General$Sex == "M"
+    maleLambs = database$General[sel, "IId"]
+    sel = database$General$Pop %in% c("wtRams1", "ntlMatingRams")
+    reproMales = database$General[sel, "IId"]
+    culledMaleLambs = maleLambs$IId[!maleLambs$IId %in% reproMales$IId]
+    removeCulledMaleLambs = row.names(SP$pedigree) %in% culledMaleLambs
+    # sum(removeCulledMaleLambs); sum(!removeCulledMaleLambs)
+    
+    variances = list(varPE = permVar,
+                     varA  = addVar,
+                     varE  = resVar)
+    
+    pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
+                                    database = database,
+                                    vars = variances,
+                                    removeFromEvaluation = removeCulledMaleLambs)
+    
+    # Set EBVs for every population
+    eliteSires3 = setEbv(eliteSires3, ebv = pedEbv)
+    eliteSires2 = setEbv(eliteSires2, ebv = pedEbv)
+    eliteSires1 = setEbv(eliteSires1, ebv = pedEbv)
+    eliteSires  = setEbv(eliteSires, ebv = pedEbv)
+    siresOfFemales3 = setEbv(siresOfFemales3, ebv = pedEbv)
+    siresOfFemales2 = setEbv(siresOfFemales2, ebv = pedEbv)
+    siresOfFemales1 = setEbv(siresOfFemales1, ebv = pedEbv)
+    siresOfFemales = setEbv(siresOfFemales, ebv = pedEbv)
+    wtRams2 = setEbv(wtRams2, ebv = pedEbv)
+    wtRams1 = setEbv(wtRams1, ebv = pedEbv)
+    ntlMatingRams = setEbv(ntlMatingRams, ebv = pedEbv)
+    eliteEwesLact4 = setEbv(eliteEwesLact4, ebv = pedEbv)
+    eliteEwesLact3 = setEbv(eliteEwesLact3, ebv = pedEbv)
+    eliteEwesLact2 = setEbv(eliteEwesLact2, ebv = pedEbv)
+    eliteEwesLact1 = setEbv(eliteEwesLact1, ebv = pedEbv)
+    eliteEwes = setEbv(eliteEwes, ebv = pedEbv)
+    damsOfFemalesLact4 = setEbv(damsOfFemalesLact4, ebv = pedEbv)
+    damsOfFemalesLact3 = setEbv(damsOfFemalesLact3, ebv = pedEbv)
+    damsOfFemalesLact2 = setEbv(damsOfFemalesLact2, ebv = pedEbv)
+    damsOfFemalesLact1 = setEbv(damsOfFemalesLact1, ebv = pedEbv)
+    damsOfFemales = setEbv(damsOfFemales, ebv = pedEbv)
+    # ... we could use setEbv(), but we have excluded some culled lambs from the
+    #     evaluation so we will just calculate parent average for all lambs - this
+    #     works for pedigree BLUP, but not for genomic BLUP (if some lambs would
+    #     have been genotyped)
+    # lambs             = setEbv(lambs, ebv = pedEbv)
+    selM = match(x = lambs@mother, table = pedEbv$IId)
+    selF = match(x = lambs@father, table = pedEbv$IId)
+    lambs@ebv = as.matrix((pedEbv[selM, -1] + pedEbv[selF, -1]) / 2)
+    
+    # Save current EBVs into the database
+    database = setDatabaseEbv(database, pop = eliteSires3)
+    database = setDatabaseEbv(database, pop = eliteSires2)
+    database = setDatabaseEbv(database, pop = eliteSires1)
+    database = setDatabaseEbv(database, pop = eliteSires)
+    database = setDatabaseEbv(database, pop = siresOfFemales3)
+    database = setDatabaseEbv(database, pop = siresOfFemales2)
+    database = setDatabaseEbv(database, pop = siresOfFemales1)
+    database = setDatabaseEbv(database, pop = siresOfFemales)
+    database = setDatabaseEbv(database, pop = wtRams2)
+    database = setDatabaseEbv(database, pop = wtRams1)
+    database = setDatabaseEbv(database, pop = ntlMatingRams)
+    database = setDatabaseEbv(database, pop = eliteEwesLact4)
+    database = setDatabaseEbv(database, pop = eliteEwesLact3)
+    database = setDatabaseEbv(database, pop = eliteEwesLact2)
+    database = setDatabaseEbv(database, pop = eliteEwesLact1)
+    # database = setDatabaseEbv(database, pop = eliteEwes) # we didn't save this pop in the database
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact4)
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact3)
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact2)
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact1)
+    # database = setDatabaseEbv(database, pop = damsOfFemales) # we didn't save this pop in the database
+    database = setDatabaseEbv(database, pop = lambs)
+    
+    # TODO: if we have done it above then we don't need to do it here again
+    # eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
+    # damsOfFemales = c(damsOfFemalesLact1, damsOfFemalesLact2, damsOfFemalesLact3, damsOfFemalesLact4)
+    
+    # ---- Summarising results ----
+    
+    cat("... Summarising results", as.character(Sys.time()), "\n")
+    
+    correlation = data.frame(year = year,
+                             eliteSires3 = ebvAccuracy(eliteSires3),
+                             eliteSires2 = ebvAccuracy(eliteSires2),
+                             eliteSires1 = ebvAccuracy(eliteSires1),
+                             eliteSires = ebvAccuracy(eliteSires),
+                             siresOfFemales3 = ebvAccuracy(siresOfFemales3),
+                             siresOfFemales2 = ebvAccuracy(siresOfFemales2),
+                             siresOfFemales1 = ebvAccuracy(siresOfFemales1),
+                             siresOfFemales = ebvAccuracy(siresOfFemales),
+                             wtRams2 = ebvAccuracy(wtRams2),
+                             wtRams1 = ebvAccuracy(wtRams1),
+                             ntlMatingRams = ebvAccuracy(ntlMatingRams),
+                             eliteEwesLact4 = ebvAccuracy(eliteEwesLact4),
+                             eliteEwesLact3 = ebvAccuracy(eliteEwesLact3),
+                             eliteEwesLact2 = ebvAccuracy(eliteEwesLact2),
+                             eliteEwesLact1 = ebvAccuracy(eliteEwesLact1),
+                             eliteEwes = ebvAccuracy(eliteEwes),
+                             damsOfFemalesLact4 = ebvAccuracy(damsOfFemalesLact4),
+                             damsOfFemalesLact3 = ebvAccuracy(damsOfFemalesLact3),
+                             damsOfFemalesLact2 = ebvAccuracy(damsOfFemalesLact2),
+                             damsOfFemalesLact1 = ebvAccuracy(damsOfFemalesLact1),
+                             damsOfFemales = ebvAccuracy(damsOfFemales),
+                             lambs = ebvAccuracy(lambs))
+    add = ifelse(year == 1, FALSE, TRUE)
+    write.table(x = correlation, file = "ebvAccuracy.txt", append = add, col.names = !add)
+    
     # ---- Rams ----
 
     cat("Rams\n")
@@ -691,10 +792,6 @@ if (burnin) {
                                   use = use)
     }
 
-    # TODO: we will have eliteEwes from fill-in as well as from the end of this cycle -
-    #       so, should we remove this line below?
-    eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
-
     # Note that we select wtRams only from lambs from elite rams (not waiting rams) and elite ewes
     selWtRams = lambs@father %in% eliteSires@id & lambs@mother %in% eliteEwes@id
     n = ceiling(nWtRams1 / length(eliteSires@id))
@@ -729,6 +826,8 @@ if (burnin) {
 
     # TODO: Selecting across all ewes, but should we focus on daughters of AI sires only?
     #       Hence selectInd(eliteEwesLact3, ...)?
+    #  yes the elite ewes are the daughters of AI sires, but we were saying that since we are choosing them based 
+    #  on their EBVs the majority have to be from elite sire no? or better to add this criterion (daughter of AI sires)? 
     eliteEwesLact4 = selectInd(ewesLact3, nInd = nEliteEwesLact4, use = use) # eliteEwesLact4 are 4 years old here
     eliteEwesLact3 = selectInd(ewesLact2, nInd = nEliteEwesLact3, use = use) # eliteEwesLact3 are 3 years old here
     eliteEwesLact2 = selectInd(ewesLact1, nInd = nEliteEwesLact2, use = use) # eliteEwesLact2 are 2 years old here
@@ -743,7 +842,6 @@ if (burnin) {
     eliteEwesLact2@pheno[,] = NA
     eliteEwesLact1@pheno[,] = NA
 
-    # TODO: is it OK if I create these eliteEwes here?
     eliteEwes = c(eliteEwesLact4, eliteEwesLact3, eliteEwesLact2, eliteEwesLact1)
 
     # ---- ... Dams of females ----
@@ -773,7 +871,6 @@ if (burnin) {
     damsOfFemalesLact2@pheno[,] = NA
     damsOfFemalesLact1@pheno[,] = NA
 
-    # TODO: is it OK if I create these damsOfFemales here?
     damsOfFemales = c(damsOfFemalesLact4, damsOfFemalesLact3, damsOfFemalesLact2, damsOfFemalesLact1)
 
     # ---- Lambs ----
@@ -791,13 +888,11 @@ if (burnin) {
 
     n = nDamsOfFemales - (n1 - nEliteEwes)
     damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
+    # TODO: Is is good like this?
     matingPlan3 = cbind(damsOfFemalesIdForRest,
-                        sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
-    # TODO: should the %usage of siresOfFemales, wtRams1, or ntlMatingRams vary?
-    # matingPlan3 = cbind(damsOfFemalesIdForRest,
-    #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
-    #                     sample(wtRams1@id, size = n3, replace = TRUE),
-    #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
+                        sample(c(siresOfFemales@id, size = n2, replace = TRUE),
+                        sample(wtRams1@id, size = n3, replace = TRUE),
+                        sample(ntlMatingRams@id, size = n4, replace = TRUE)))
     
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
@@ -833,114 +928,6 @@ if (burnin) {
     database = recordData(database, pop = damsOfFemalesLact1, year = yearFull, lactation = 1)
     # database = recordData(database, pop = damsOfFemales, year = yearFull, lactation = ???) # can not save like this since lactations vary
     database = recordData(database, pop = lambs, year = yearFull)
-
-    # We will remove male lambs from the evaluation - those that will never
-    #   contribute to next generations
-    sel = database$General$Pop == "lambs" & database$General$Sex == "M"
-    maleLambs = database$General[sel, "IId"]
-    sel = database$General$Pop %in% c("wtRams1", "ntlMatingRams")
-    reproMales = database$General[sel, "IId"]
-    culledMaleLambs = maleLambs$IId[!maleLambs$IId %in% reproMales$IId]
-    removeCulledMaleLambs = row.names(SP$pedigree) %in% culledMaleLambs
-    # sum(removeCulledMaleLambs); sum(!removeCulledMaleLambs)
-
-    variances = list(varPE = permVar,
-                     varA  = addVar,
-                     varE  = resVar)
-
-    pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
-                                    database = database,
-                                    vars = variances,
-                                    removeFromEvaluation = removeCulledMaleLambs)
-
-    # Set EBVs for every population
-    eliteSires3 = setEbv(eliteSires3, ebv = pedEbv)
-    eliteSires2 = setEbv(eliteSires2, ebv = pedEbv)
-    eliteSires1 = setEbv(eliteSires1, ebv = pedEbv)
-    eliteSires  = setEbv(eliteSires, ebv = pedEbv)
-    siresOfFemales3 = setEbv(siresOfFemales3, ebv = pedEbv)
-    siresOfFemales2 = setEbv(siresOfFemales2, ebv = pedEbv)
-    siresOfFemales1 = setEbv(siresOfFemales1, ebv = pedEbv)
-    siresOfFemales = setEbv(siresOfFemales, ebv = pedEbv)
-    wtRams2 = setEbv(wtRams2, ebv = pedEbv)
-    wtRams1 = setEbv(wtRams1, ebv = pedEbv)
-    ntlMatingRams = setEbv(ntlMatingRams, ebv = pedEbv)
-    eliteEwesLact4 = setEbv(eliteEwesLact4, ebv = pedEbv)
-    eliteEwesLact3 = setEbv(eliteEwesLact3, ebv = pedEbv)
-    eliteEwesLact2 = setEbv(eliteEwesLact2, ebv = pedEbv)
-    eliteEwesLact1 = setEbv(eliteEwesLact1, ebv = pedEbv)
-    eliteEwes = setEbv(eliteEwes, ebv = pedEbv)
-    damsOfFemalesLact4 = setEbv(damsOfFemalesLact4, ebv = pedEbv)
-    damsOfFemalesLact3 = setEbv(damsOfFemalesLact3, ebv = pedEbv)
-    damsOfFemalesLact2 = setEbv(damsOfFemalesLact2, ebv = pedEbv)
-    damsOfFemalesLact1 = setEbv(damsOfFemalesLact1, ebv = pedEbv)
-    damsOfFemales = setEbv(damsOfFemales, ebv = pedEbv)
-    # ... we could use setEbv(), but we have excluded some culled lambs from the
-    #     evaluation so we will just calculate parent average for all lambs - this
-    #     works for pedigree BLUP, but not for genomic BLUP (if some lambs would
-    #     have been genotyped)
-    # lambs             = setEbv(lambs, ebv = pedEbv)
-    selM = match(x = lambs@mother, table = pedEbv$IId)
-    selF = match(x = lambs@father, table = pedEbv$IId)
-    lambs@ebv = as.matrix((pedEbv[selM, -1] + pedEbv[selF, -1]) / 2)
-
-    # Save current EBVs into the database
-    database = setDatabaseEbv(database, pop = eliteSires3)
-    database = setDatabaseEbv(database, pop = eliteSires2)
-    database = setDatabaseEbv(database, pop = eliteSires1)
-    database = setDatabaseEbv(database, pop = eliteSires)
-    database = setDatabaseEbv(database, pop = siresOfFemales3)
-    database = setDatabaseEbv(database, pop = siresOfFemales2)
-    database = setDatabaseEbv(database, pop = siresOfFemales1)
-    database = setDatabaseEbv(database, pop = siresOfFemales)
-    database = setDatabaseEbv(database, pop = wtRams2)
-    database = setDatabaseEbv(database, pop = wtRams1)
-    database = setDatabaseEbv(database, pop = ntlMatingRams)
-    database = setDatabaseEbv(database, pop = eliteEwesLact4)
-    database = setDatabaseEbv(database, pop = eliteEwesLact3)
-    database = setDatabaseEbv(database, pop = eliteEwesLact2)
-    database = setDatabaseEbv(database, pop = eliteEwesLact1)
-    # database = setDatabaseEbv(database, pop = eliteEwes) # we didn't save this pop in the database
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact4)
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact3)
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact2)
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact1)
-    # database = setDatabaseEbv(database, pop = damsOfFemales) # we didn't save this pop in the database
-    database = setDatabaseEbv(database, pop = lambs)
-
-    # TODO: if we have done it above then we don't need to do it here again
-    # eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
-    # damsOfFemales = c(damsOfFemalesLact1, damsOfFemalesLact2, damsOfFemalesLact3, damsOfFemalesLact4)
-
-    # ---- Summarising results ----
-
-    cat("... Summarising results", as.character(Sys.time()), "\n")
-
-    correlation = data.frame(year = year,
-                             eliteSires3 = ebvAccuracy(eliteSires3),
-                             eliteSires2 = ebvAccuracy(eliteSires2),
-                             eliteSires1 = ebvAccuracy(eliteSires1),
-                             eliteSires = ebvAccuracy(eliteSires),
-                             siresOfFemales3 = ebvAccuracy(siresOfFemales3),
-                             siresOfFemales2 = ebvAccuracy(siresOfFemales2),
-                             siresOfFemales1 = ebvAccuracy(siresOfFemales1),
-                             siresOfFemales = ebvAccuracy(siresOfFemales),
-                             wtRams2 = ebvAccuracy(wtRams2),
-                             wtRams1 = ebvAccuracy(wtRams1),
-                             ntlMatingRams = ebvAccuracy(ntlMatingRams),
-                             eliteEwesLact4 = ebvAccuracy(eliteEwesLact4),
-                             eliteEwesLact3 = ebvAccuracy(eliteEwesLact3),
-                             eliteEwesLact2 = ebvAccuracy(eliteEwesLact2),
-                             eliteEwesLact1 = ebvAccuracy(eliteEwesLact1),
-                             eliteEwes = ebvAccuracy(eliteEwes),
-                             damsOfFemalesLact4 = ebvAccuracy(damsOfFemalesLact4),
-                             damsOfFemalesLact3 = ebvAccuracy(damsOfFemalesLact3),
-                             damsOfFemalesLact2 = ebvAccuracy(damsOfFemalesLact2),
-                             damsOfFemalesLact1 = ebvAccuracy(damsOfFemalesLact1),
-                             damsOfFemales = ebvAccuracy(damsOfFemales),
-                             lambs = ebvAccuracy(lambs))
-    add = ifelse(year == 1, FALSE, TRUE)
-    write.table(x = correlation, file = "ebvAccuracy.txt", append = add, col.names = !add)
 
     # Save workspace image
     # fileName = paste("burnin_year", year, ".RData", sep = "")
@@ -1017,7 +1004,122 @@ if (scenarios) {
     database = setDatabasePheno(database, pop = damsOfFemalesLact3)
     database = setDatabasePheno(database, pop = damsOfFemalesLact2)
     database = setDatabasePheno(database, pop = damsOfFemalesLact1)
-
+    
+    # We will remove male lambs from the evaluation - those that will never
+    #   contribute to next generations
+    sel = database$General$Pop == "lambs" & database$General$Sex == "M"
+    maleLambs = database$General[sel, "IId"]
+    sel = database$General$Pop %in% c("wtRams1", "ntlMatingRams")
+    reproMales = database$General[sel, "IId"]
+    culledMaleLambs = maleLambs$IId[!maleLambs$IId %in% reproMales$IId]
+    removeCulledMaleLambs = row.names(SP$pedigree) %in% culledMaleLambs
+    # sum(removeCulledMaleLambs); sum(!removeCulledMaleLambs)
+    
+    if (scenario %in% c("std", "stdOCS")) {
+      variances = list(varPE = permVar,
+                       varA  = addVar,
+                       varE  = resVar)
+    } else if (scenario %in% c("idl", "idlOCS")) {
+      variances = list(varPE = permVar,
+                       varA  = addVar,
+                       varIDL = idlVar,
+                       varE  = resVar)
+    }
+    
+    pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
+                                    database = database,
+                                    vars = variances,
+                                    removeFromEvaluation = removeCulledMaleLambs)
+    
+    # Set EBVs for every population
+    eliteSires3 = setEbv(eliteSires3, ebv = pedEbv)
+    eliteSires2 = setEbv(eliteSires2, ebv = pedEbv)
+    eliteSires1 = setEbv(eliteSires1, ebv = pedEbv)
+    eliteSires  = setEbv(eliteSires, ebv = pedEbv)
+    siresOfFemales3 = setEbv(siresOfFemales3, ebv = pedEbv)
+    siresOfFemales2 = setEbv(siresOfFemales2, ebv = pedEbv)
+    siresOfFemales1 = setEbv(siresOfFemales1, ebv = pedEbv)
+    siresOfFemales = setEbv(siresOfFemales, ebv = pedEbv)
+    wtRams2 = setEbv(wtRams2, ebv = pedEbv)
+    wtRams1 = setEbv(wtRams1, ebv = pedEbv)
+    ntlMatingRams = setEbv(ntlMatingRams, ebv = pedEbv)
+    eliteEwesLact4 = setEbv(eliteEwesLact4, ebv = pedEbv)
+    eliteEwesLact3 = setEbv(eliteEwesLact3, ebv = pedEbv)
+    eliteEwesLact2 = setEbv(eliteEwesLact2, ebv = pedEbv)
+    eliteEwesLact1 = setEbv(eliteEwesLact1, ebv = pedEbv)
+    eliteEwes = setEbv(eliteEwes, ebv = pedEbv)
+    damsOfFemalesLact4 = setEbv(damsOfFemalesLact4, ebv = pedEbv)
+    damsOfFemalesLact3 = setEbv(damsOfFemalesLact3, ebv = pedEbv)
+    damsOfFemalesLact2 = setEbv(damsOfFemalesLact2, ebv = pedEbv)
+    damsOfFemalesLact1 = setEbv(damsOfFemalesLact1, ebv = pedEbv)
+    damsOfFemales = setEbv(damsOfFemales, ebv = pedEbv)
+    # ... we could use setEbv(), but we have excluded some culled lambs from the
+    #     evaluation so we will just calculate parent average for all lambs - this
+    #     works for pedigree BLUP, but not for genomic BLUP (if some lambs would
+    #     have been genotyped)
+    # lambs             = setEbv(lambs, ebv = pedEbv)
+    selM = match(x = lambs@mother, table = pedEbv$IId)
+    selF = match(x = lambs@father, table = pedEbv$IId)
+    lambs@ebv = as.matrix((pedEbv[selM, -1] + pedEbv[selF, -1]) / 2)
+    
+    # Save current EBVs into the database
+    database = setDatabaseEbv(database, pop = eliteSires3)
+    database = setDatabaseEbv(database, pop = eliteSires2)
+    database = setDatabaseEbv(database, pop = eliteSires1)
+    database = setDatabaseEbv(database, pop = eliteSires)
+    database = setDatabaseEbv(database, pop = siresOfFemales3)
+    database = setDatabaseEbv(database, pop = siresOfFemales2)
+    database = setDatabaseEbv(database, pop = siresOfFemales1)
+    database = setDatabaseEbv(database, pop = siresOfFemales)
+    database = setDatabaseEbv(database, pop = wtRams2)
+    database = setDatabaseEbv(database, pop = wtRams1)
+    database = setDatabaseEbv(database, pop = ntlMatingRams)
+    database = setDatabaseEbv(database, pop = eliteEwesLact4)
+    database = setDatabaseEbv(database, pop = eliteEwesLact3)
+    database = setDatabaseEbv(database, pop = eliteEwesLact2)
+    database = setDatabaseEbv(database, pop = eliteEwesLact1)
+    # database = setDatabaseEbv(database, pop = eliteEwes) # we didn't save this pop in the database
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact4)
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact3)
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact2)
+    database = setDatabaseEbv(database, pop = damsOfFemalesLact1)
+    # database = setDatabaseEbv(database, pop = damsOfFemales) # we didn't save this pop in the database
+    database = setDatabaseEbv(database, pop = lambs)
+    
+    # TODO: if we have done it above then we don't need to do it here again
+    # TODO: answer: we do not need it to update the values of the EBV for the accuracies below?
+    # eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
+    # damsOfFemales = c(damsOfFemalesLact1, damsOfFemalesLact2, damsOfFemalesLact3, damsOfFemalesLact4)
+    
+    # ---- Summarising results ----
+    
+    cat("... Summarising results", as.character(Sys.time()), "\n")
+    
+    correlation = data.frame(year = year,
+                             eliteSires3 = ebvAccuracy(eliteSires3),
+                             eliteSires2 = ebvAccuracy(eliteSires2),
+                             eliteSires1 = ebvAccuracy(eliteSires1),
+                             eliteSires = ebvAccuracy(eliteSires),
+                             siresOfFemales3 = ebvAccuracy(siresOfFemales3),
+                             siresOfFemales2 = ebvAccuracy(siresOfFemales2),
+                             siresOfFemales1 = ebvAccuracy(siresOfFemales1),
+                             siresOfFemales = ebvAccuracy(siresOfFemales),
+                             wtRams2 = ebvAccuracy(wtRams2),
+                             wtRams1 = ebvAccuracy(wtRams1),
+                             ntlMatingRams = ebvAccuracy(ntlMatingRams),
+                             eliteEwesLact4 = ebvAccuracy(eliteEwesLact4),
+                             eliteEwesLact3 = ebvAccuracy(eliteEwesLact3),
+                             eliteEwesLact2 = ebvAccuracy(eliteEwesLact2),
+                             eliteEwesLact1 = ebvAccuracy(eliteEwesLact1),
+                             eliteEwes = ebvAccuracy(eliteEwes),
+                             damsOfFemalesLact4 = ebvAccuracy(damsOfFemalesLact4),
+                             damsOfFemalesLact3 = ebvAccuracy(damsOfFemalesLact3),
+                             damsOfFemalesLact2 = ebvAccuracy(damsOfFemalesLact2),
+                             damsOfFemalesLact1 = ebvAccuracy(damsOfFemalesLact1),
+                             damsOfFemales = ebvAccuracy(damsOfFemales),
+                             lambs = ebvAccuracy(lambs))
+    write.table(x = correlation, file = "ebvAccuracy.txt", append = TRUE, col.names = FALSE)
+    
     # ---- Rams ----
 
     cat("Rams\n")
@@ -1040,6 +1142,7 @@ if (scenarios) {
     }
 
     # Don't create eliteSires here!
+    # Why? 
 
     # ---- ... Sires of females ----
 
@@ -1059,10 +1162,6 @@ if (scenarios) {
       siresOfFemales1 = selectInd(pop = siresOfFemales1, nInd = nSiresOfFemales1,
                                   use = use)
     }
-
-    # TODO: we will have eliteEwes from fill-in as well as from the end of this cycle -
-    #       so, should we remove this line below?
-    eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
 
     # Note that we select wtRams only from lambs from elite rams (not waiting rams) and elite ewes
     selWtRams = lambs@father %in% eliteSires@id & lambs@mother %in% eliteEwes@id
@@ -1098,6 +1197,8 @@ if (scenarios) {
 
     # TODO: Selecting across all ewes, but should we focus on daughters of AI sires only?
     #       Hence selectInd(eliteEwesLact3, ...)?
+    #  yes the elite ewes are the daughters of AI sires, but we were saying that since we are choosing them based 
+    #  on their EBVs the majority have to be from elite sire no? or better to add this criterion (daughter of AI sires)? 
     eliteEwesLact4 = selectInd(ewesLact3, nInd = nEliteEwesLact4, use = use) # eliteEwesLact4 are 4 years old here
     eliteEwesLact3 = selectInd(ewesLact2, nInd = nEliteEwesLact3, use = use) # eliteEwesLact3 are 3 years old here
     eliteEwesLact2 = selectInd(ewesLact1, nInd = nEliteEwesLact2, use = use) # eliteEwesLact2 are 2 years old here
@@ -1112,7 +1213,6 @@ if (scenarios) {
     eliteEwesLact2@pheno[,] = NA
     eliteEwesLact1@pheno[,] = NA
 
-    # TODO: is it OK if I create these eliteEwes here?
     eliteEwes = c(eliteEwesLact4, eliteEwesLact3, eliteEwesLact2, eliteEwesLact1)
 
     # ---- ... Dams of females ----
@@ -1142,7 +1242,6 @@ if (scenarios) {
     damsOfFemalesLact2@pheno[,] = NA
     damsOfFemalesLact1@pheno[,] = NA
 
-    # TODO: is it OK if I create these damsOfFemales here?
     damsOfFemales = c(damsOfFemalesLact4, damsOfFemalesLact3, damsOfFemalesLact2, damsOfFemalesLact1)
 
     # ---- Lambs ----
@@ -1160,14 +1259,14 @@ if (scenarios) {
 
     n = nDamsOfFemales - (n1 - nEliteEwes)
     damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
-    matingPlan3 = cbind(damsOfFemalesIdForRest,
-                        sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
-    # TODO: should the %usage of siresOfFemales, wtRams1, or ntlMatingRams vary?
     # matingPlan3 = cbind(damsOfFemalesIdForRest,
-    #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
-    #                     sample(wtRams1@id, size = n3, replace = TRUE),
-    #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
-    
+    #                     sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
+    # TODO: here I added the number of contribution of each category is it correct like this?
+    matingPlan3 = cbind(damsOfFemalesIdForRest,
+                        sample(c(siresOfFemales@id, size = n2, replace = TRUE),
+                        sample(wtRams1@id, size = n3, replace = TRUE),
+                        sample(ntlMatingRams@id, size = n4, replace = TRUE)))
+
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                        males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
@@ -1203,120 +1302,7 @@ if (scenarios) {
     # database = recordData(database, pop = damsOfFemales, year = yearFull, lactation = ???) # can not save like this since lactations vary
     database = recordData(database, pop = lambs, year = yearFull)
 
-    # We will remove male lambs from the evaluation - those that will never
-    #   contribute to next generations
-    sel = database$General$Pop == "lambs" & database$General$Sex == "M"
-    maleLambs = database$General[sel, "IId"]
-    sel = database$General$Pop %in% c("wtRams1", "ntlMatingRams")
-    reproMales = database$General[sel, "IId"]
-    culledMaleLambs = maleLambs$IId[!maleLambs$IId %in% reproMales$IId]
-    removeCulledMaleLambs = row.names(SP$pedigree) %in% culledMaleLambs
-    # sum(removeCulledMaleLambs); sum(!removeCulledMaleLambs)
-
-    if (scenario %in% c("std", "stdOCS")) {
-      variances = list(varPE = permVar,
-                       varA  = addVar,
-                       varE  = resVar)
-    } else if (scenario %in% c("idl", "idlOCS")) {
-      variances = list(varPE = permVar,
-                       varA  = addVar,
-                       varIDL = idlVar,
-                       varE  = resVar)
-    }
-
-    pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
-                                    database = database,
-                                    vars = variances,
-                                    removeFromEvaluation = removeCulledMaleLambs)
-
-    # Set EBVs for every population
-    eliteSires3 = setEbv(eliteSires3, ebv = pedEbv)
-    eliteSires2 = setEbv(eliteSires2, ebv = pedEbv)
-    eliteSires1 = setEbv(eliteSires1, ebv = pedEbv)
-    eliteSires  = setEbv(eliteSires, ebv = pedEbv)
-    siresOfFemales3 = setEbv(siresOfFemales3, ebv = pedEbv)
-    siresOfFemales2 = setEbv(siresOfFemales2, ebv = pedEbv)
-    siresOfFemales1 = setEbv(siresOfFemales1, ebv = pedEbv)
-    siresOfFemales = setEbv(siresOfFemales, ebv = pedEbv)
-    wtRams2 = setEbv(wtRams2, ebv = pedEbv)
-    wtRams1 = setEbv(wtRams1, ebv = pedEbv)
-    ntlMatingRams = setEbv(ntlMatingRams, ebv = pedEbv)
-    eliteEwesLact4 = setEbv(eliteEwesLact4, ebv = pedEbv)
-    eliteEwesLact3 = setEbv(eliteEwesLact3, ebv = pedEbv)
-    eliteEwesLact2 = setEbv(eliteEwesLact2, ebv = pedEbv)
-    eliteEwesLact1 = setEbv(eliteEwesLact1, ebv = pedEbv)
-    eliteEwes = setEbv(eliteEwes, ebv = pedEbv)
-    damsOfFemalesLact4 = setEbv(damsOfFemalesLact4, ebv = pedEbv)
-    damsOfFemalesLact3 = setEbv(damsOfFemalesLact3, ebv = pedEbv)
-    damsOfFemalesLact2 = setEbv(damsOfFemalesLact2, ebv = pedEbv)
-    damsOfFemalesLact1 = setEbv(damsOfFemalesLact1, ebv = pedEbv)
-    damsOfFemales = setEbv(damsOfFemales, ebv = pedEbv)
-    # ... we could use setEbv(), but we have excluded some culled lambs from the
-    #     evaluation so we will just calculate parent average for all lambs - this
-    #     works for pedigree BLUP, but not for genomic BLUP (if some lambs would
-    #     have been genotyped)
-    # lambs             = setEbv(lambs, ebv = pedEbv)
-    selM = match(x = lambs@mother, table = pedEbv$IId)
-    selF = match(x = lambs@father, table = pedEbv$IId)
-    lambs@ebv = as.matrix((pedEbv[selM, -1] + pedEbv[selF, -1]) / 2)
-
-    # Save current EBVs into the database
-    database = setDatabaseEbv(database, pop = eliteSires3)
-    database = setDatabaseEbv(database, pop = eliteSires2)
-    database = setDatabaseEbv(database, pop = eliteSires1)
-    database = setDatabaseEbv(database, pop = eliteSires)
-    database = setDatabaseEbv(database, pop = siresOfFemales3)
-    database = setDatabaseEbv(database, pop = siresOfFemales2)
-    database = setDatabaseEbv(database, pop = siresOfFemales1)
-    database = setDatabaseEbv(database, pop = siresOfFemales)
-    database = setDatabaseEbv(database, pop = wtRams2)
-    database = setDatabaseEbv(database, pop = wtRams1)
-    database = setDatabaseEbv(database, pop = ntlMatingRams)
-    database = setDatabaseEbv(database, pop = eliteEwesLact4)
-    database = setDatabaseEbv(database, pop = eliteEwesLact3)
-    database = setDatabaseEbv(database, pop = eliteEwesLact2)
-    database = setDatabaseEbv(database, pop = eliteEwesLact1)
-    # database = setDatabaseEbv(database, pop = eliteEwes) # we didn't save this pop in the database
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact4)
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact3)
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact2)
-    database = setDatabaseEbv(database, pop = damsOfFemalesLact1)
-    # database = setDatabaseEbv(database, pop = damsOfFemales) # we didn't save this pop in the database
-    database = setDatabaseEbv(database, pop = lambs)
-
-    # TODO: if we have done it above then we don't need to do it here again
-    # eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
-    # damsOfFemales = c(damsOfFemalesLact1, damsOfFemalesLact2, damsOfFemalesLact3, damsOfFemalesLact4)
-
-    # ---- Summarising results ----
-
-    cat("... Summarising results", as.character(Sys.time()), "\n")
-
-    correlation = data.frame(year = year,
-                             eliteSires3 = ebvAccuracy(eliteSires3),
-                             eliteSires2 = ebvAccuracy(eliteSires2),
-                             eliteSires1 = ebvAccuracy(eliteSires1),
-                             eliteSires = ebvAccuracy(eliteSires),
-                             siresOfFemales3 = ebvAccuracy(siresOfFemales3),
-                             siresOfFemales2 = ebvAccuracy(siresOfFemales2),
-                             siresOfFemales1 = ebvAccuracy(siresOfFemales1),
-                             siresOfFemales = ebvAccuracy(siresOfFemales),
-                             wtRams2 = ebvAccuracy(wtRams2),
-                             wtRams1 = ebvAccuracy(wtRams1),
-                             ntlMatingRams = ebvAccuracy(ntlMatingRams),
-                             eliteEwesLact4 = ebvAccuracy(eliteEwesLact4),
-                             eliteEwesLact3 = ebvAccuracy(eliteEwesLact3),
-                             eliteEwesLact2 = ebvAccuracy(eliteEwesLact2),
-                             eliteEwesLact1 = ebvAccuracy(eliteEwesLact1),
-                             eliteEwes = ebvAccuracy(eliteEwes),
-                             damsOfFemalesLact4 = ebvAccuracy(damsOfFemalesLact4),
-                             damsOfFemalesLact3 = ebvAccuracy(damsOfFemalesLact3),
-                             damsOfFemalesLact2 = ebvAccuracy(damsOfFemalesLact2),
-                             damsOfFemalesLact1 = ebvAccuracy(damsOfFemalesLact1),
-                             damsOfFemales = ebvAccuracy(damsOfFemales),
-                             lambs = ebvAccuracy(lambs))
-    write.table(x = correlation, file = "ebvAccuracy.txt", append = TRUE, col.names = FALSE)
-
+ 
     # Save workspace image
     # fileName = paste("scenario_year", year, ".RData", sep = "")
     # save.image(file = fileName)
