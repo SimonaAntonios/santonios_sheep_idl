@@ -539,7 +539,6 @@ if (burnin) {
                       sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
   n = n1 - nEliteEwes
-  # TODO: is it ok to use damsOfFemales@id here?
   damsOfFemalesId = damsOfFemales@id
   damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
   matingPlan2 = cbind(damsOfFemalesIdForElite,
@@ -549,8 +548,13 @@ if (burnin) {
   damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
   matingPlan3 = cbind(damsOfFemalesIdForRest,
                       sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
+  
   # TODO: should the %usage of siresOfFemales, wtRams1, or ntlMatingRams vary?
-
+  # matingPlan3 = cbind(damsOfFemalesIdForRest,
+  #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
+  #                     sample(wtRams1@id, size = n3, replace = TRUE),
+  #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
+  
   matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
   # TODO: ok to use c(eliteEwes, damsOfFemales) here?
   lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
@@ -776,12 +780,10 @@ if (burnin) {
 
     cat("Lambs", as.character(Sys.time()), "\n")
 
-    # TODO: is it OK to use these eliteEwes here?
     matingPlan1 = cbind(eliteEwes@id,
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
     n = n1 - nEliteEwes
-    # TODO: is it OK to use these damsOfFemales here?
     damsOfFemalesId = damsOfFemales@id
     damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
     matingPlan2 = cbind(damsOfFemalesIdForElite,
@@ -792,13 +794,15 @@ if (burnin) {
     matingPlan3 = cbind(damsOfFemalesIdForRest,
                         sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
     # TODO: should the %usage of siresOfFemales, wtRams1, or ntlMatingRams vary?
-
+    # matingPlan3 = cbind(damsOfFemalesIdForRest,
+    #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
+    #                     sample(wtRams1@id, size = n3, replace = TRUE),
+    #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
+    
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
-    # TODO: is it OK to use these eliteEwes & damsOfFemales here?
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                        males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
                        crossPlan = matingPlan)
-    # TODO: is it OK to use these eliteEwes & damsOfFemales here?
     lambs = fillInMisc(pop = lambs,
                        mothers = c(eliteEwes, damsOfFemales),
                        permEnvVar = permVar, year = yearFull)
@@ -1145,12 +1149,10 @@ if (scenarios) {
 
     cat("Lambs", as.character(Sys.time()), "\n")
 
-    # TODO: is it OK to use these eliteEwes here?
     matingPlan1 = cbind(eliteEwes@id,
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
     n = n1 - nEliteEwes
-    # TODO: is it OK to use these damsOfFemales here?
     damsOfFemalesId = damsOfFemales@id
     damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
     matingPlan2 = cbind(damsOfFemalesIdForElite,
@@ -1161,13 +1163,15 @@ if (scenarios) {
     matingPlan3 = cbind(damsOfFemalesIdForRest,
                         sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
     # TODO: should the %usage of siresOfFemales, wtRams1, or ntlMatingRams vary?
-
+    # matingPlan3 = cbind(damsOfFemalesIdForRest,
+    #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
+    #                     sample(wtRams1@id, size = n3, replace = TRUE),
+    #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
+    
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
-    # TODO: is it OK to use these eliteEwes & damsOfFemales here?
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                        males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
                        crossPlan = matingPlan)
-    # TODO: is it OK to use these eliteEwes & damsOfFemales here?
     lambs = fillInMisc(pop = lambs,
                        mothers = c(eliteEwes, damsOfFemales),
                        permEnvVar = permVar, year = yearFull)
