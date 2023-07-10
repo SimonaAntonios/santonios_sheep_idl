@@ -1,11 +1,7 @@
 # source(file = "functions.R")
 
-sampleHerdYearEffect = function(n) {
-  as.matrix(rnorm(n = n, sd = sqrt(herdYearVar)))
-}
-
-sampleYearEffect = function(n = 1) {
-  as.matrix(rnorm(n = n, sd = sqrt(yearVar)))
+sampleEffect = function(n, var) {
+  as.matrix(rnorm(n = n, sd = sqrt(var)))
 }
 
 getHerd = function(pop) {

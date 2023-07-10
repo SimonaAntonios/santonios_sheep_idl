@@ -1,11 +1,5 @@
 #!/usr/bin/env Rscript
 #
-# Long-term selection in dairy sheep on milk yield with additive & dominance
-#   effects to test Inbreeding Depression Load (IDL) model with or without
-#   Optimal Contribution Selection (OCS) method.
-#
-# Simona Antonios, Jana Obsteter, Ivan Pocrnic, Gregor Gorjanc, Silvia Rodriguez-Ramilo, Zulma Vitezica (2023)
-#
 # This script runs one scenario at a time defined via arguments. Make sure this
 #   script is executable:
 #
@@ -213,7 +207,6 @@ if (FALSE) {
 }
 
 # Trait parameters:
-nTraits             = 1                                                            # no. of traits (milk yield)
 meanLac1            = 209                                                          # mean of milk yield in lactation X
 meanLac2            = 213
 meanLac3            = 207
@@ -376,14 +369,14 @@ if (burnin) {
   # hist(herdSize); mean(herdSize); meanHerdSize - mean(herdSize); sd(herdSize); sdHerdSize - sd(herdSize)
   # 327.2, -7.2, 115.8, 13.2
   herdEffect = cbind(rnorm(n = nHerds, mean = 0, sd = sqrt(herdVar)))
-  herdYearEffect = sampleHerdYearEffect(n = nHerds)
+  herdYearEffect = sampleEffect(n = nHerds, var = herdYearVar)
   herds = list(
     herd = 1:nHerds,
     herdSize = herdSize,
     herdEffect = as.matrix(herdEffect),
     herdYearEffect = as.matrix(herdYearEffect)
   )
-  yearEffect = sampleYearEffect()
+  yearEffect = sampleEffect(n = 1, var = yearVar)
 
   # ---- Fill-in ---------------------------------------------------------------
 
@@ -548,13 +541,13 @@ if (burnin) {
   damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
   matingPlan3 = cbind(damsOfFemalesIdForRest,
                       sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
-  
+
   # TODO: should the %usage of siresOfFemales, wtRams1, or ntlMatingRams vary?
   # matingPlan3 = cbind(damsOfFemalesIdForRest,
   #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
   #                     sample(wtRams1@id, size = n3, replace = TRUE),
   #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
-  
+
   matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
   # TODO: ok to use c(eliteEwes, damsOfFemales) here?
   lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
@@ -603,8 +596,8 @@ if (burnin) {
 
     cat("Year", year, " (", yearFull, ") ", as.character(Sys.time()), "\n")
 
-    yearEffect = sampleYearEffect()
-    herds$herdYearEffect = sampleHerdYearEffect(n = nHerds)
+    yearEffect = sampleEffect(n = 1, var = yearVar)
+    herds$herdYearEffect = sampleEffect(n = nHerds, var = herdYearVar)
 
     if (year <= 1) {
       use = "rand"
@@ -798,7 +791,7 @@ if (burnin) {
     #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
     #                     sample(wtRams1@id, size = n3, replace = TRUE),
     #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
-    
+
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                        males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
@@ -978,8 +971,8 @@ if (scenarios) {
 
     cat("Year", year, " (", yearFull, ") ", as.character(Sys.time()), "\n")
 
-    yearEffect = sampleYearEffect()
-    herds$herdYearEffect = sampleHerdYearEffect(n = nHerds)
+    yearEffect = sampleEffect(n = 1, var = yearVar)
+    herds$herdYearEffect = sampleEffect(n = nHerds, var = herdYearVar)
 
     # ---- Phenotyping ----
 
@@ -1167,7 +1160,7 @@ if (scenarios) {
     #                     sample(c(siresOfFemales@id, size = n2, replace = TRUE),
     #                     sample(wtRams1@id, size = n3, replace = TRUE),
     #                     sample(ntlMatingRams@id, size = n4, replace = TRUE)))
-    
+
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                        males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
