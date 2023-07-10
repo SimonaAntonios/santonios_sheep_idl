@@ -309,3 +309,130 @@ setDatabaseEbv = function(database, pop = NULL, trait = 1) {
 ebvAccuracy = function(pop, digits = 2 ) {
   round(cor(pop@ebv, pop@gv, use = "complete.obs")[1, 1], digits = digits)
 }
+
+#' @rdname getPedNrmSubset
+#' @title Get a subset of pedigree numerator relationship matrix efficiently
+#'
+#' @description Get a subset of pedigree numerator relationship matrix
+#'   efficiently using the Colleau (2002) algorithm.
+#'
+#' @param pedNrmInv inverse pedigree numerator relationship matrix (ideally as a
+#'   sparse matrix from a function like \code{\link[pedigreemm]{getAInv}})
+#' @param ind character or numeric, names (if character) or position index (if
+#'   numeric) of individuals in \code{pedNrmInv} for which we want the
+#'   corresponding pedNrm
+#' @param with character or numeric (see \code{ind}), the output will be
+#'   \code{pedNrm[ind, with]}
+#' @param sum character or numeric, individuals for which we want a sum
+#'   (collapsed) parts of pedNrm instead of the individual rows and columns, the
+#'   output will be |pedNrm[ind, ind] pedNrm[ind, s]|
+#'                  |pedNrm[  s, ind] pedNrm[  s, s]|
+#'
+#' @return Pedigree numerator relationship matrix
+#'
+#' @reference Colleau, JJ. An indirect approach to the extensive calculation of
+#'   relationship coefficients. Genet Sel Evol 34, 409 (2002).
+#'   https://doi.org/10.1186/1297-9686-34-4-409
+#'
+#' @examples
+#' # Example pedigree
+#' #                         1   2  3   4  5  6  7  8
+#' ped <- pedigree(sire = c(NA, NA, 1,  1, 4, 5, 5, 5),
+#'                 dam  = c(NA, NA, 2, NA, 3, 2, 6, 6),
+#'                 label= 1:8)
+#'
+#' # Pedigree numerator relationship matrix - covariance
+#' (pedNrm <- getA(ped))
+#'
+#' # Pedigree numerator relationship matrix - precision (=inverse covariance)
+#' (pedNrmInv <- getAInv(ped))
+#'
+#' # Subset of pedNrm[5:8, 5:8] - by subsetting pedNrm, which is inefficient
+#' (pedNrmSubsetSlow <- pedNrm[5:8, 5:8])
+#'
+#' # Subset of pedNrm[5:8, 5:8] - via pedNrmInv, which is efficient
+#' (pedNrmSubsetFast <- getPedNrmSubset(pedNrmInv, ind = 5:8))
+#' pedNrmSubsetFast - pedNrmSubsetSlow
+#' # above should be zero or near zero (~e-16)
+#'
+#' # Subset of pedNrm[5:8, 7:8]
+#' (pedNrmSubsetWith <- getPedNrmSubset(pedNrmInv, ind = 5:8, with = 7:8))
+#' pedNrmSubsetWith - pedNrm[7:8, 5:8]
+#' # above should be zero or near zero (~e-16)
+#'
+#' # Collapsed/Sum subset of pedNrm
+#' (pedNrmSubsetSum <- getPedNrmSubset(pedNrmInv, ind = 5:6, sum = 7:8))
+#'
+#' selInd <- as.character(5:6)
+#' pedNrmSubsetFast[selInd, selInd] - pedNrmSubsetSum[selInd, selInd]
+#' # above should be zero or near zero (~e-16)
+#'
+#' selSum <- as.character(7:8)
+#' rowSums(pedNrmSubsetFast[selInd, selSum]) - pedNrmSubsetSum[selInd, "Sum"]
+#' # above should be zero or near zero (~e-16)
+#'
+#' sum(pedNrmSubsetFast[selSum, selSum]) - pedNrmSubsetSum["Sum", "Sum"]
+#' # above should be zero or near zero (~e-16)
+#'
+#' # If you need only diagonal (1 + inbreeding coefficient)
+#' diag(pedNrmSubsetFast)
+#'
+#' # If you want values as a vector
+#' c(as.matrix(pedNrmSubsetFast))
+#'
+#' @export
+getPedNrmSubset <- function(pedNrmInv, ind, with = ind, sum = NULL) {
+  indNames <- row.names(pedNrmInv)
+  if (is.character(ind)) {
+    ind <- match(x = ind, table = indNames, nomatch = 0)
+  }
+  if (is.character(with)) {
+    with <- match(x = with, table = indNames, nomatch = 0)
+    stop("WORK IN PROGRESS: Need to develop general approach for with!")
+  }
+  if (!is.null(sum)) {
+    if (is.character(sum)) {
+      sum <- match(x = sum, table = indNames, nomatch = 0)
+    }
+    test <- ind %in% sum
+    if (any(test)) {
+      warning("Some individuals in ind are present in sum\n",
+              "These individuals will be removed from ind, but kept in sum!")
+      ind <- ind[!test]
+    }
+    test <- with %in% sum
+    if (any(test)) {
+      warning("Some individuals in with are present in sum\n",
+              "These individuals will be removed from with, but kept in sum!")
+      with <- with[!test]
+    }
+  }
+  nIndAll <- nrow(pedNrmInv)
+  nInd <- length(ind)
+  # A x = y
+  # AInv A x = AInv y
+  # x = AInv y
+  # AInv y = x hence solving for y - matrix version of x and hence y
+  x <- sparseMatrix(i = ind, j = 1:nInd,
+                    dims = c(nIndAll, nInd))
+  x <- as(x, "dMatrix")
+  pedNrmSubset <- solve(pedNrmInv, x)[with, ]
+  dimnames(pedNrmSubset) <- list(as.character(with), as.character(ind))
+  if (!is.null(sum)) {
+    # As above A x = y etc. but here we are doing a vector of y
+    nSum <- length(sum)
+    x <- sparseMatrix(i = sum, j = rep(1, times = nSum),
+                      dims = c(nIndAll, 1))
+    x <- as(x, "dMatrix")
+    pedNrmSubsetSumTmp <- solve(pedNrmInv, x)
+    pedNrmSubsetSumVec <- pedNrmSubsetSumTmp[ind, , drop = FALSE]
+    dimnames(pedNrmSubsetSumVec) <- list(as.character(ind), "Sum")
+
+    # We want x^TAx = y here, but we already have Ax = y so we just need x^Ty
+    pedNrmSubsetSumScalar <- crossprod(x, pedNrmSubsetSumTmp)
+    dimnames(pedNrmSubsetSumScalar) <- list("Sum", "Sum")
+    pedNrmSubset <- rbind(cbind(pedNrmSubset,          pedNrmSubsetSumVec),
+                          cbind(t(pedNrmSubsetSumVec), pedNrmSubsetSumScalar))
+  }
+  return(pedNrmSubset)
+}
