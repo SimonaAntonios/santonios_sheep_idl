@@ -128,8 +128,8 @@ NM_prolificacy      = 1.4                                                       
 AI_Fertility        = 0.6                                                          # fertility in Artificial Insemination (AI)
 AI_prolificacy      = 1.6                                                          # prolificacy in AI
 survRate            = 0.75                                                         # survival rate
-NMLambRate <- NM_Fertility * NM_prolificacy * survRate # 0.945
-AILambRate <- AI_Fertility * AI_prolificacy * survRate # 0.720
+NMLambRate = NM_Fertility * NM_prolificacy * survRate # 0.945
+AILambRate = AI_Fertility * AI_prolificacy * survRate # 0.720
 pEwesInAI = 0.5
 nEwesInAI = pEwesInAI * nEwes
 pEwesInNM = 1 - pEwesInAI
@@ -240,13 +240,13 @@ idlVar              = domVar # TODO: how do we get this? Estimate from the data?
 # Based on these values we expect this phenotypic variance and ratios
 if (FALSE) {
   # "Full" peno variance (still missing lactation means!)
-  (phenVar <- yearVar + herdVar + herdYearVar + permVar + addVar + domVar + resVar) # 3250
+  (phenVar = yearVar + herdVar + herdYearVar + permVar + addVar + domVar + resVar) # 3250
   permVar / phenVar # ~0.062
   addVar / phenVar # ~0.154
   domVar / phenVar # ~0.015
 
   # "Reduced" peno variance (still missing lactation means!)
-  (phenVar <- permVar + addVar + domVar + resVar) # 1500
+  (phenVar = permVar + addVar + domVar + resVar) # 1500
   permVar / phenVar # ~0.133
   addVar / phenVar # ~0.333
   domVar / phenVar # ~0.033
