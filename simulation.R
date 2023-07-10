@@ -1170,8 +1170,8 @@ if (scenarios) {
                               use = use)
     }
 
-    # Don't create eliteSires here!
-    # Why?
+    # Don't create eliteSires here! Because we require old set of eliteSires in
+    #   the next steps. We will create this combined population after that;)
 
     # ---- ... Sires of females ----
 
@@ -1206,8 +1206,8 @@ if (scenarios) {
     ntlMatingRams =  selectInd(pop = lambs[selNtlRams], nInd = nNaturalMatingRams,
                                use = use, famType = "M", sex = "M")
 
-    # Have to do it here since we need to keep track of previous eliteSires in
-    #   the above steps
+    # Now we can recreate the eliteSires population (we require the old set of
+    #   eliteSires in the above steps)
     eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
     siresOfFemales = c(siresOfFemales3, siresOfFemales2, siresOfFemales1)
 
