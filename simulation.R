@@ -96,11 +96,15 @@ if (scenarios) {
 cat("  * restarting:", restart, "\n")
 
 # Load packages
-# install.packages(pkg = c("tidyverse", "AlphaSimR", "degreenet", "data.table"))
-library(tidyverse)
-library(AlphaSimR)
+if (FALSE) {
+  requiredPkgs = c("tidyverse", "AlphaSimR", "degreenet", "data.table", "pedigreemm")
+  install.packages(pkg = requiredPkgs)
+}
+library(tidyverse)  # for data manipulation
 library(degreenet)  # for simulation of herd sizes
 library(data.table) # for fast data operations (reading, writing, ...)
+library(pedigreemm) # for pedigree numerator relationship inverse matrix
+library(AlphaSimR)  # for stochastic simulation of a breeding programme
 
 if (interactive()) {
   # Simona's folder
@@ -135,7 +139,9 @@ nEwesInAI = pEwesInAI * nEwes
 pEwesInNM = 1 - pEwesInAI
 nEwesInNM = pEwesInNM * nEwes
 # Based on these numbers we will get
-NMLambRate * nEwesInNM + AILambRate* nEwesInAI #  ~66,600 lambs
+if (FALSE) {
+  NMLambRate * nEwesInNM + AILambRate* nEwesInAI # 66,600 lambs
+}
 
 # We are setting the no. of ewes from the above number of lambs (simulating only successful lactations!)
 nFemalesInLactation = 66600                                                        # no. of females in lactation
@@ -157,10 +163,10 @@ nWtRamsAIDose       = 85                                                        
 nNtlMatingDose      = 40                                                           # no. of natural matings per NM ram
 
 # Number of lambs from different matings
-nLambsFromAIEliteSires = round(nEliteSires * nEliteSireDose * AILambRate) # 8640
-nLambsFromAIForPT = round(nWtRams1 * nWtRamsAIDose * AILambRate) # 9180
-nLambsFromAIRest = round((nEwesInAI - (nEliteSires * nEliteSireDose + nWtRams1 * nWtRamsAIDose)) * AILambRate) # 10980
-nLambsFromNM = round(nNaturalMatingRams * nNtlMatingDose * NMLambRate) # 37800
+nLambsFromAIEliteSires = round(nEliteSires * nEliteSireDose * AILambRate) # 8,640
+nLambsFromAIForPT = round(nWtRams1 * nWtRamsAIDose * AILambRate) # 9,180
+nLambsFromAIRest = round((nEwesInAI - (nEliteSires * nEliteSireDose + nWtRams1 * nWtRamsAIDose)) * AILambRate) # 10,980
+nLambsFromNM = round(nNaturalMatingRams * nNtlMatingDose * NMLambRate) # 37,800
 
 pDamsOfFemalesLact1 = 0.30                                                         # prop. of dams of females in lactation X
 pDamsOfFemalesLact2 = 0.28
@@ -420,6 +426,7 @@ if (burnin) {
   # ... in the 3rd year in service
   eliteSires3 = randCross(pop = basePop, nCrosses = 10 * nEliteSires3)
   eliteSires3 = selectWithinFam(pop = eliteSires3, nInd = 1, use = "rand", famType = "M")
+  eliteSires3 = seletecInd(pop = eliteSires3, nInd = nEliteSires3, use = "rand")
   eliteSires3@sex[] = "M"
   eliteSires3@father[] = "0"
   eliteSires3@mother[] = "0"
@@ -427,6 +434,7 @@ if (burnin) {
   # ... in the 2nd year in service
   eliteSires2 = randCross(pop = basePop, nCrosses = 10 * nEliteSires2)
   eliteSires2 = selectWithinFam(pop = eliteSires2, nInd = 1, use = "rand", famType = "M")
+  eliteSires2 = seletecInd(pop = eliteSires2, nInd = nEliteSires2, use = "rand")
   eliteSires2@sex[] = "M"
   eliteSires2@father[] = "0"
   eliteSires2@mother[] = "0"
@@ -434,6 +442,7 @@ if (burnin) {
   # ... in the 1st year in service
   eliteSires1 = randCross(pop = basePop, nCrosses = 10 * nEliteSires1)
   eliteSires1 = selectWithinFam(pop = eliteSires1, nInd = 1, use = "rand", famType = "M")
+  eliteSires1 = seletecInd(pop = eliteSires1, nInd = nEliteSires1, use = "rand")
   eliteSires1@sex[] = "M"
   eliteSires1@father[] = "0"
   eliteSires1@mother[] = "0"
@@ -445,6 +454,7 @@ if (burnin) {
   # ... in the 3rd year in service
   siresOfFemales3 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales3)
   siresOfFemales3 = selectWithinFam(pop = siresOfFemales3, nInd = 1, use = "rand", famType = "M")
+  siresOfFemales3 = seletecInd(pop = siresOfFemales3, nInd = nSiresOfFemales3, use = "rand")
   siresOfFemales3@sex[] = "M"
   siresOfFemales3@father[] = "0"
   siresOfFemales3@mother[] = "0"
@@ -452,6 +462,7 @@ if (burnin) {
   # ... in the 2nd year in service
   siresOfFemales2 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales2)
   siresOfFemales2 = selectWithinFam(pop = siresOfFemales2, nInd = 1, use = "rand", famType = "M")
+  siresOfFemales2 = seletecInd(pop = siresOfFemales2, nInd = nSiresOfFemales2, use = "rand")
   siresOfFemales2@sex[] = "M"
   siresOfFemales2@father[] = "0"
   siresOfFemales2@mother[] = "0"
@@ -459,6 +470,7 @@ if (burnin) {
   # ... in the 1st year in service
   siresOfFemales1 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales1)
   siresOfFemales1 = selectWithinFam(pop = siresOfFemales1, nInd = 1, use = "rand", famType = "M")
+  siresOfFemales1 = seletecInd(pop = siresOfFemales1, nInd = nSiresOfFemales1, use = "rand")
   siresOfFemales1@sex[] = "M"
   siresOfFemales1@father[] = "0"
   siresOfFemales1@mother[] = "0"
@@ -470,6 +482,7 @@ if (burnin) {
   # ... 1.5 years old
   wtRams2  = randCross(basePop, nCrosses = 10 * nWtRams2)
   wtRams2 = selectWithinFam(pop = wtRams2, nInd = 1, use = "rand", famType = "M")
+  wtRams2 = seletecInd(pop = wtRams2, nInd = nWtRams2, use = "rand")
   wtRams2@sex[] = "M"
   wtRams2@father[] = "0"
   wtRams2@mother[] = "0"
@@ -477,6 +490,7 @@ if (burnin) {
   # ... 0.5 years old
   wtRams1  = randCross(basePop, nCrosses = 10 * nWtRams1)
   wtRams1 = selectWithinFam(pop = wtRams1, nInd = 1, use = "rand", famType = "M")
+  wtRams1 = seletecInd(pop = wtRams1, nInd = nWtRams1, use = "rand")
   wtRams1@sex[] = "M"
   wtRams1@father[] = "0"
   wtRams1@mother[] = "0"
@@ -1148,6 +1162,22 @@ if (scenarios) {
                              damsOfFemales = ebvAccuracy(damsOfFemales),
                              lambs = ebvAccuracy(lambs))
     write.table(x = correlation, file = "ebvAccuracy.txt", append = TRUE, col.names = FALSE)
+
+    if (scenario %in% c("stdOCS", "idlOCS")) {
+      # ---- Optimise contributions ----
+
+      cat("Optimise contributions", as.character(Sys.time()), "\n")
+
+      ped = pedigree(sire = SP$pedigree[, "father"],
+                     dam  = SP$pedigree[, "mother"],
+                     label= 1:SP$lastId)
+      pedNrmInv = getAInv(ped)
+
+      # TODO: which animals go where?
+      # pedNrm = getPedNrmSubset(pedNrmInv, ind = 5:6, sum = 7:8))
+
+      stop("WORK IN PROGRESS: OCS Not completed!")
+    }
 
     # ---- Select rams ----
 
