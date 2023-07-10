@@ -122,27 +122,32 @@ sourceFunctions() # to ensure we have the latest version (countering save.image(
 
 cat("Global parameters\n")
 
-nEwes               = 80000
-nFemalesInLactation = 66600                                                        # no. of females in lactation
-nEliteEwes          = 6000
-nDamsOfFemales      = 60600
-survRate            = 0.75                                                         # survival rate
+nEwes               = 80000                                                        # no. of all females
 NM_Fertility        = 0.9                                                          # fertility in Natural Mating (NM)
 NM_prolificacy      = 1.4                                                          # prolificacy in NM
 AI_Fertility        = 0.6                                                          # fertility in Artificial Insemination (AI)
 AI_prolificacy      = 1.6                                                          # prolificacy in AI
-# Based on these numbers we will get ~66,600 lambs
-if (FALSE) {
-  NMLambRate <- NM_Fertility * NM_prolificacy * survRate
-  AILambRate <- AI_Fertility * AI_prolificacy * survRate
-  NMLambRate * nEwes / 2 + AILambRate* nEwes / 2
-}
+survRate            = 0.75                                                         # survival rate
+NMLambRate <- NM_Fertility * NM_prolificacy * survRate # 0.945
+AILambRate <- AI_Fertility * AI_prolificacy * survRate # 0.720
+pEwesInAI = 0.5
+nEwesInAI = pEwesInAI * nEwes
+pEwesInNM = 1 - pEwesInAI
+nEwesInNM = pEwesInNM * nEwes
+# Based on these numbers we will get
+NMLambRate * nEwesInNM + AILambRate* nEwesInAI #  ~66,600 lambs
+
+# We are setting the no. of ewes from the above number of lambs (simulating only successful lactations!)
+nFemalesInLactation = 66600                                                        # no. of females in lactation
+nEliteEwes          = 6000
+nDamsOfFemales      = 60600
 
 nWtRams1            = 150                                                          # no. of waiting rams for progeny testing
 nWtRams2            = 150                                                          # no. of waiting rams for progeny testing
 nEliteSires1        = 10                                                           # no. of elite sires selected every year (for the x-th year of AI)
 nEliteSires2        = 10
 nEliteSires3        = 10
+nEliteSires         = nEliteSires1 + nEliteSires2 + nEliteSires3
 nSiresOfFemales1    = 55                                                           # no. of elite sires of dams selected every year (for the x-th year)
 nSiresOfFemales2    = 55
 nSiresOfFemales3    = 55
@@ -151,12 +156,11 @@ nEliteSireDose      = 400                                                       
 nWtRamsAIDose       = 85                                                           # no. of AI doses per wating ram
 nNtlMatingDose      = 40                                                           # no. of natural matings per NM ram
 
-# Number of lambs from AI
-n1 = round(nEliteSireDose * (nEliteSires1 + nEliteSires2 + nEliteSires3) * survRate * AI_Fertility * AI_prolificacy) # 8640 progeny
-n2 = round((nEwes / 2 - (nEliteSireDose * (nEliteSires1 + nEliteSires2 + nEliteSires3) + nWtRams1 * nWtRamsAIDose)) * survRate * AI_Fertility * AI_prolificacy) # 10980 progeny
-n3 = round(nWtRams1 * nWtRamsAIDose * survRate * AI_Fertility * AI_prolificacy) # 9180 progeny
-# Number of lambs from NM
-n4 = round(nNaturalMatingRams * nNtlMatingDose * survRate * NM_Fertility * NM_prolificacy) # 37800 progeny
+# Number of lambs from different matings
+nLambsFromAIEliteSires = round(nEliteSires * nEliteSireDose * AILambRate) # 8640
+nLambsFromAIForPT = round(nWtRams1 * nWtRamsAIDose * AILambRate) # 9180
+nLambsFromAIRest = round((nEwesInAI - (nEliteSires * nEliteSireDose + nWtRams1 * nWtRamsAIDose)) * AILambRate) # 10980
+nLambsFromNM = round(nNaturalMatingRams * nNtlMatingDose * NMLambRate) # 37800
 
 pDamsOfFemalesLact1 = 0.30                                                         # prop. of dams of females in lactation X
 pDamsOfFemalesLact2 = 0.28
@@ -553,13 +557,13 @@ if (burnin) {
   matingPlan1 = cbind(eliteEwes@id,
                       sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
-  n = n1 - nEliteEwes
+  n = nLambsFromAIEliteSires - nEliteEwes
   damsOfFemalesId = damsOfFemales@id
   damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
   matingPlan2 = cbind(damsOfFemalesIdForElite,
                       sample(eliteSires@id, size = n, replace = TRUE))
 
-  n = nDamsOfFemales - (n1 - nEliteEwes)
+  n = nDamsOfFemales - (nLambsFromAIEliteSires - nEliteEwes)
   damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
   matingPlan3 = cbind(damsOfFemalesIdForRest,
                       sample(c(sample(siresOfFemales@id, size = n2, replace = TRUE),
@@ -903,13 +907,13 @@ if (burnin) {
     matingPlan1 = cbind(eliteEwes@id,
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
-    n = n1 - nEliteEwes
+    n = nLambsFromAIEliteSires - nEliteEwes
     damsOfFemalesId = damsOfFemales@id
     damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
     matingPlan2 = cbind(damsOfFemalesIdForElite,
                         sample(eliteSires@id, size = n, replace = TRUE))
 
-    n = nDamsOfFemales - (n1 - nEliteEwes)
+    n = nDamsOfFemales - (nLambsFromAIEliteSires - nEliteEwes)
     damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
     matingPlan3 = cbind(damsOfFemalesIdForRest,
                         sample(c(sample(siresOfFemales@id, size = n2, replace = TRUE),
@@ -1273,13 +1277,13 @@ if (scenarios) {
     matingPlan1 = cbind(eliteEwes@id,
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
-    n = n1 - nEliteEwes
+    n = nLambsFromAIEliteSires - nEliteEwes
     damsOfFemalesId = damsOfFemales@id
     damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
     matingPlan2 = cbind(damsOfFemalesIdForElite,
                         sample(eliteSires@id, size = n, replace = TRUE))
 
-    n = nDamsOfFemales - (n1 - nEliteEwes)
+    n = nDamsOfFemales - (nLambsFromAIEliteSires - nEliteEwes)
     damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
     matingPlan3 = cbind(damsOfFemalesIdForRest,
                         sample(c(sample(siresOfFemales@id, size = n2, replace = TRUE),
