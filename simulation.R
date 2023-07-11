@@ -807,7 +807,7 @@ if (burnin) {
                                use = use, famType = "M", sex = "M")
 
     # Have to do it here since we need to keep track of previous eliteSires in
-    #   the above steps
+    # the above steps
     eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
     siresOfFemales = c(siresOfFemales3, siresOfFemales2, siresOfFemales1)
 
