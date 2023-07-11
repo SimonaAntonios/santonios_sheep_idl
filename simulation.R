@@ -1,11 +1,5 @@
 #!/usr/bin/env Rscript
 #
-# Long-term selection in dairy sheep on milk yield with additive & dominance
-#   effects to test Inbreeding Depression Load (IDL) model with or without
-#   Optimal Contribution Selection (OCS) method.
-#
-# Simona Antonios, Jana Obsteter, Ivan Pocrnic, Gregor Gorjanc, Silvia Rodriguez-Ramilo, Zulma Vitezica (2023)
-#
 # This script runs one scenario at a time defined via arguments. Make sure this
 #   script is executable:
 #
@@ -102,17 +96,21 @@ if (scenarios) {
 cat("  * restarting:", restart, "\n")
 
 # Load packages
-# install.packages(pkg = c("tidyverse", "AlphaSimR", "degreenet", "data.table"))
-library(tidyverse)
-library(AlphaSimR)
+if (FALSE) {
+  requiredPkgs = c("tidyverse", "AlphaSimR", "degreenet", "data.table", "pedigreemm")
+  install.packages(pkg = requiredPkgs)
+}
+library(tidyverse)  # for data manipulation
 library(degreenet)  # for simulation of herd sizes
 library(data.table) # for fast data operations (reading, writing, ...)
+library(pedigreemm) # for pedigree numerator relationship inverse matrix
+library(AlphaSimR)  # for stochastic simulation of a breeding programme
 
 if (interactive()) {
   # Simona's folder
   setwd(dir = "/home/santonios/work/santonios/part2/simulation")
   # Gregor's folder
-  setwd(dir = "~/Storages/GitBox/sheep_simulation_AlphaSimR/")
+  setwd(dir = "~/Storages/GitBox/HighlanderLab/santonios_sheep_idl/")
 }
 # Source required functions
 sourceFunctions = function(dir = NULL) {
@@ -128,23 +126,34 @@ sourceFunctions() # to ensure we have the latest version (countering save.image(
 
 cat("Global parameters\n")
 
-nEwes               = 80000
-nFemalesInLactation = 66600                                                        # no. of females in lactation
-nEliteEwes          = 6000
-nDamsOfFemales      = 60600
-survRate            = 0.75                                                         # survival rate
+nEwes               = 80000                                                        # no. of all females
 NM_Fertility        = 0.9                                                          # fertility in Natural Mating (NM)
 NM_prolificacy      = 1.4                                                          # prolificacy in NM
 AI_Fertility        = 0.6                                                          # fertility in Artificial Insemination (AI)
 AI_prolificacy      = 1.6                                                          # prolificacy in AI
-nLambs              = trunc(((NM_Fertility * NM_prolificacy * survRate +
-                                AI_Fertility * AI_prolificacy * survRate)) * nEwes / 2) # no. of lambs (TODO: why divide by 2? because 50% the ewes are naturally mated and the other 50 are inseminated)
+survRate            = 0.75                                                         # survival rate
+NMLambRate = NM_Fertility * NM_prolificacy * survRate # 0.945
+AILambRate = AI_Fertility * AI_prolificacy * survRate # 0.720
+pEwesInAI = 0.5
+nEwesInAI = pEwesInAI * nEwes
+pEwesInNM = 1 - pEwesInAI
+nEwesInNM = pEwesInNM * nEwes
+# Based on these numbers we will get
+if (FALSE) {
+  NMLambRate * nEwesInNM + AILambRate* nEwesInAI # 66,600 lambs
+}
+
+# We are setting the no. of ewes from the above number of lambs (simulating only successful lactations!)
+nFemalesInLactation = 66600                                                        # no. of females in lactation
+nEliteEwes          = 6000
+nDamsOfFemales      = 60600
 
 nWtRams1            = 150                                                          # no. of waiting rams for progeny testing
 nWtRams2            = 150                                                          # no. of waiting rams for progeny testing
 nEliteSires1        = 10                                                           # no. of elite sires selected every year (for the x-th year of AI)
 nEliteSires2        = 10
 nEliteSires3        = 10
+nEliteSires         = nEliteSires1 + nEliteSires2 + nEliteSires3
 nSiresOfFemales1    = 55                                                           # no. of elite sires of dams selected every year (for the x-th year)
 nSiresOfFemales2    = 55
 nSiresOfFemales3    = 55
@@ -153,12 +162,11 @@ nEliteSireDose      = 400                                                       
 nWtRamsAIDose       = 85                                                           # no. of AI doses per wating ram
 nNtlMatingDose      = 40                                                           # no. of natural matings per NM ram
 
-# Number of lambs from AI
-n1 = round(nEliteSireDose * (nEliteSires1 + nEliteSires2 + nEliteSires3) * survRate * AI_Fertility * AI_prolificacy) # 8640 progeny
-n2 = round((nEwes / 2 - (nEliteSireDose * (nEliteSires1 + nEliteSires2 + nEliteSires3) + nWtRams1 * nWtRamsAIDose)) * survRate * AI_Fertility * AI_prolificacy) # 10980 progeny
-n3 = round(nWtRams1 * nWtRamsAIDose * survRate * AI_Fertility * AI_prolificacy) # 9180 progeny
-# Number of lambs from NM
-n4 = round(nNaturalMatingRams * nNtlMatingDose * survRate * NM_Fertility * NM_prolificacy) # 37800 progeny
+# Number of lambs from different matings
+nLambsFromAIEliteSires = round(nEliteSires * nEliteSireDose * AILambRate) # 8,640
+nLambsFromAIForPT = round(nWtRams1 * nWtRamsAIDose * AILambRate) # 9,180
+nLambsFromAIRest = round((nEwesInAI - (nEliteSires * nEliteSireDose + nWtRams1 * nWtRamsAIDose)) * AILambRate) # 10,980
+nLambsFromNM = round(nNaturalMatingRams * nNtlMatingDose * NMLambRate) # 37,800
 
 pDamsOfFemalesLact1 = 0.30                                                         # prop. of dams of females in lactation X
 pDamsOfFemalesLact2 = 0.28
@@ -211,25 +219,44 @@ if (FALSE) {
 }
 
 # Trait parameters:
-nTraits             = 1                                                            # no. of traits (milk yield)
-meanLac1            = 209                                                          # mean of milk yield in lactation X
-meanLac2            = 213
-meanLac3            = 207
-meanLac4            = 180
+meanLact1           = 209                                                          # mean of milk yield in lactation X
+meanLact2           = 213
+meanLact3           = 207
+meanLact4           = 180
+meanLact = c(meanLact1, meanLact2, meanLact3, meanLact4)
+nTmp1 = c(nDamsOfFemalesLact1, nDamsOfFemalesLact2, nDamsOfFemalesLact3, nDamsOfFemalesLact4)
+nTmp2 = c(nEliteEwesLact1, nEliteEwesLact2, nEliteEwesLact3, nEliteEwesLact4)
+meanLactAll = sum(c(nTmp1 * meanLact, nTmp2 * meanLact)) / nFemalesInLactation
 
-# addVar            = 1200                                                         # additive genetic variance
-addVar              = 1000                                                         # additive genetic variance
-# permVar           = 500                                                          # permanent environmental variance
-permVar             = 400       # 500 (Old value) - 100 = 400 (new value)          # permanent environmental variance (we started with old, 100 was targeted domVar)
-resVar              = 1500                                                         # residual variance
-phenVar             = 7000                                                         # specifying phenotypic variance for the trait
-yearVar             = 1000                                                         # year variance
-herdVar             = 1500                                                         # herd variance
-herdYearVar         = 1000                                                         # herd-year variance
-domVar              = addVar * 0.1
-meanDD              = 0.08
-varDD               = 0.30
+varScale = 0.5                                                                     # downscale variances to get mostly positive phenotypes
+yearVar             = 1000 * varScale                                              # year variance
+herdVar             = 1500 * varScale                                              # herd variance
+herdYearVar         = 1000 * varScale                                              # herd-year variance
+# addVar            = 1200 * varScale                                              # additive genetic variance
+addVar              = 1000 * varScale                                              # additive genetic variance
+# permVar           = 500 * varScale                                               # permanent environmental variance
+permVar             = 400 * varScale # 500 (Old value) - 100 = 400 (new value)     # permanent environmental variance (we started with old, 100 was targeted domVar)
+resVar              = 1500 * varScale                                              # residual variance
+domVar              = addVar * 0.1                                                 # dominance variance
+fullInbreedDepress  = 70                                                           # depression with complete inbreeding
+meanDD              = 0.08                                                         # dominance parameters - see use of altAddTraitAD() below
+varDD               = 0.30                                                         # dominance parameters - see use of altAddTraitAD() below
 idlVar              = domVar # TODO: how do we get this? Estimate from the data?
+                             #       https://github.com/SimonaAntonios/santonios_sheep_idl/issues/17
+# Based on these values we expect this phenotypic variance and ratios
+if (FALSE) {
+  # "Full" peno variance (still missing lactation means!)
+  (phenVar = yearVar + herdVar + herdYearVar + permVar + addVar + domVar + resVar) # 3250
+  permVar / phenVar # ~0.062
+  addVar / phenVar # ~0.154
+  domVar / phenVar # ~0.015
+
+  # "Reduced" peno variance (still missing lactation means!)
+  (phenVar = permVar + addVar + domVar + resVar) # 1500
+  permVar / phenVar # ~0.133
+  addVar / phenVar # ~0.333
+  domVar / phenVar # ~0.033
+}
 
 nBurninYears        = 20                                                           # no. of years for burnin
 nScenarioYears      = 20                                                           # no. of years for scenarios
@@ -304,20 +331,20 @@ if (burnin) {
   cat("Founder genomes", as.character(Sys.time()), "\n")
 
   if (FALSE) {
-  founderPop = runMacs2(nInd = 10 * BaseNe,
-                        nChr = nChr,
-                        segSites = nSNPPerChr,
-                        Ne = BaseNe,
-                        bp = ChrSize,
-                        genLen = RecRate * ChrSize,
-                        mutRate = MutRate,
-                        histNe = histNe,
-                        histGen = histGen)
+    founderPop = runMacs2(nInd = 10 * BaseNe,
+                          nChr = nChr,
+                          segSites = nSNPPerChr,
+                          Ne = BaseNe,
+                          bp = ChrSize,
+                          genLen = RecRate * ChrSize,
+                          mutRate = MutRate,
+                          histNe = histNe,
+                          histGen = histGen)
     # Save just the founderPop
-  # save(founderPop, file = "founderPop.RData")
+    # save(founderPop, file = "founderPop.RData")
   }
-  load("founderPop.RData")
-  # load("../../founder_runMacs2.RData") # note that we are in rep_x/[burnin|scenario] folder at this stage
+  # load("founderPop.RData")
+  load("../../founder_runMacs2.RData") # note that we are in rep_x/[burnin|scenario] folder at this stage
   sourceFunctions(dir = "../..") # to ensure we have the latest version (countering save.image(), if it was used)
 
   # ---- AlphaSimR simulation parameters ---------------------------------------
@@ -335,13 +362,16 @@ if (burnin) {
   # ... we got the meanDD and varDD from this function and saved the values in
   #     global parameters
   if (FALSE) {
-    altAddTraitAD(nQtlPerChr = nQtlPerChr,
-                  mean = trtMean,
+    source(file = "../../altAddTraitAD.R")
+    # TODO: check if dominance params change with scaled down variances
+    #       https://github.com/SimonaAntonios/santonios_sheep_idl/issues/18
+    altAddTraitAD(nQtlPerChr = nQTLPerChr,
+                  mean = meanLact1,
                   varA = addVar,
                   varD = domVar,
+                  inbrDepr = fullInbreedDepress,
                   limMeanDD = c(-1, 2),
-                  limVarDD = c(0, 2),
-                  inbrDepr = 70)
+                  limVarDD = c(0, 2))
     # New trait called Trait1 was added
     # Dominance variance is 100.0
     # Inbreeding depression is 70.0
@@ -373,15 +403,15 @@ if (burnin) {
   herdSize = sample(x = herdSize, size = nHerds)
   # hist(herdSize); mean(herdSize); meanHerdSize - mean(herdSize); sd(herdSize); sdHerdSize - sd(herdSize)
   # 327.2, -7.2, 115.8, 13.2
-  herdEffect = cbind(rnorm(n = nHerds, mean = 0, sd = sqrt(herdVar)))
-  herdYearEffect = sampleHerdYearEffect(n = nHerds)
+  herdEffect = sampleEffect(n = nHerds, var = herdVar)
+  herdYearEffect = sampleEffect(n = nHerds, var = herdYearVar)
   herds = list(
     herd = 1:nHerds,
     herdSize = herdSize,
-    herdEffect = as.matrix(herdEffect),
-    herdYearEffect = as.matrix(herdYearEffect)
+    herdEffect = herdEffect,
+    herdYearEffect = herdYearEffect
   )
-  yearEffect = sampleYearEffect()
+  yearEffect = sampleEffect(n = 1, var = yearVar)
 
   # ---- Fill-in ---------------------------------------------------------------
 
@@ -396,6 +426,7 @@ if (burnin) {
   # ... in the 3rd year in service
   eliteSires3 = randCross(pop = basePop, nCrosses = 10 * nEliteSires3)
   eliteSires3 = selectWithinFam(pop = eliteSires3, nInd = 1, use = "rand", famType = "M")
+  eliteSires3 = seletecInd(pop = eliteSires3, nInd = nEliteSires3, use = "rand")
   eliteSires3@sex[] = "M"
   eliteSires3@father[] = "0"
   eliteSires3@mother[] = "0"
@@ -403,6 +434,7 @@ if (burnin) {
   # ... in the 2nd year in service
   eliteSires2 = randCross(pop = basePop, nCrosses = 10 * nEliteSires2)
   eliteSires2 = selectWithinFam(pop = eliteSires2, nInd = 1, use = "rand", famType = "M")
+  eliteSires2 = seletecInd(pop = eliteSires2, nInd = nEliteSires2, use = "rand")
   eliteSires2@sex[] = "M"
   eliteSires2@father[] = "0"
   eliteSires2@mother[] = "0"
@@ -410,6 +442,7 @@ if (burnin) {
   # ... in the 1st year in service
   eliteSires1 = randCross(pop = basePop, nCrosses = 10 * nEliteSires1)
   eliteSires1 = selectWithinFam(pop = eliteSires1, nInd = 1, use = "rand", famType = "M")
+  eliteSires1 = seletecInd(pop = eliteSires1, nInd = nEliteSires1, use = "rand")
   eliteSires1@sex[] = "M"
   eliteSires1@father[] = "0"
   eliteSires1@mother[] = "0"
@@ -421,6 +454,7 @@ if (burnin) {
   # ... in the 3rd year in service
   siresOfFemales3 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales3)
   siresOfFemales3 = selectWithinFam(pop = siresOfFemales3, nInd = 1, use = "rand", famType = "M")
+  siresOfFemales3 = seletecInd(pop = siresOfFemales3, nInd = nSiresOfFemales3, use = "rand")
   siresOfFemales3@sex[] = "M"
   siresOfFemales3@father[] = "0"
   siresOfFemales3@mother[] = "0"
@@ -428,6 +462,7 @@ if (burnin) {
   # ... in the 2nd year in service
   siresOfFemales2 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales2)
   siresOfFemales2 = selectWithinFam(pop = siresOfFemales2, nInd = 1, use = "rand", famType = "M")
+  siresOfFemales2 = seletecInd(pop = siresOfFemales2, nInd = nSiresOfFemales2, use = "rand")
   siresOfFemales2@sex[] = "M"
   siresOfFemales2@father[] = "0"
   siresOfFemales2@mother[] = "0"
@@ -435,6 +470,7 @@ if (burnin) {
   # ... in the 1st year in service
   siresOfFemales1 = randCross(pop = basePop, nCrosses = 10 * nSiresOfFemales1)
   siresOfFemales1 = selectWithinFam(pop = siresOfFemales1, nInd = 1, use = "rand", famType = "M")
+  siresOfFemales1 = seletecInd(pop = siresOfFemales1, nInd = nSiresOfFemales1, use = "rand")
   siresOfFemales1@sex[] = "M"
   siresOfFemales1@father[] = "0"
   siresOfFemales1@mother[] = "0"
@@ -446,6 +482,7 @@ if (burnin) {
   # ... 1.5 years old
   wtRams2  = randCross(basePop, nCrosses = 10 * nWtRams2)
   wtRams2 = selectWithinFam(pop = wtRams2, nInd = 1, use = "rand", famType = "M")
+  wtRams2 = seletecInd(pop = wtRams2, nInd = nWtRams2, use = "rand")
   wtRams2@sex[] = "M"
   wtRams2@father[] = "0"
   wtRams2@mother[] = "0"
@@ -453,6 +490,7 @@ if (burnin) {
   # ... 0.5 years old
   wtRams1  = randCross(basePop, nCrosses = 10 * nWtRams1)
   wtRams1 = selectWithinFam(pop = wtRams1, nInd = 1, use = "rand", famType = "M")
+  wtRams1 = seletecInd(pop = wtRams1, nInd = nWtRams1, use = "rand")
   wtRams1@sex[] = "M"
   wtRams1@father[] = "0"
   wtRams1@mother[] = "0"
@@ -495,7 +533,6 @@ if (burnin) {
   eliteEwesLact1 = fillInMisc(pop = eliteEwesLact1, year = startYear - 1,
                               herds = herds, permEnvVar = permVar)
 
-  # TODO: is this OK?
   eliteEwes = c(eliteEwesLact4, eliteEwesLact3, eliteEwesLact2, eliteEwesLact1)
 
   # Dams of females
@@ -534,22 +571,23 @@ if (burnin) {
   matingPlan1 = cbind(eliteEwes@id,
                       sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
-  n = n1 - nEliteEwes
+  n = nLambsFromAIEliteSires - nEliteEwes
   damsOfFemalesId = damsOfFemales@id
   damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
   matingPlan2 = cbind(damsOfFemalesIdForElite,
                       sample(eliteSires@id, size = n, replace = TRUE))
 
-  n = nDamsOfFemales - (n1 - nEliteEwes)
+  n = nDamsOfFemales - (nLambsFromAIEliteSires - nEliteEwes)
   damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
-  # matingPlan3 = cbind(damsOfFemalesIdForRest,
-  #                     sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
-  # TODO: IS it good like this?
   matingPlan3 = cbind(damsOfFemalesIdForRest,
-                      sample(c(siresOfFemales@id, size = n2, replace = TRUE),
-                      sample(wtRams1@id, size = n3, replace = TRUE),
-                      sample(ntlMatingRams@id, size = n4, replace = TRUE)))
-  
+                      sample(c(sample(siresOfFemales@id, size = n2, replace = TRUE),
+                               sample(wtRams1@id, size = n3, replace = TRUE),
+                               sample(ntlMatingRams@id, size = n4, replace = TRUE))))
+  # Note that:
+  # 1) sample(pop, size = n, replace = TRUE) gives us n contributions from pop
+  # 2) sample(c(sample(), sample(), sample())) shuffles selected male contributions
+  #    across female contributions (=random mating)
+
   matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
   lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                      males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
@@ -596,8 +634,8 @@ if (burnin) {
 
     cat("Year", year, " (", yearFull, ") ", as.character(Sys.time()), "\n")
 
-    yearEffect = sampleYearEffect()
-    herds$herdYearEffect = sampleHerdYearEffect(n = nHerds)
+    yearEffect = sampleEffect(n = 1, var = yearVar)
+    herds$herdYearEffect = sampleEffect(n = nHerds, var = herdYearVar)
 
     if (year <= 1) {
       use = "rand"
@@ -610,28 +648,28 @@ if (burnin) {
     cat("Phenotyping", as.character(Sys.time()), "\n")
 
     eliteEwesLact4 = setPhenoEwe(eliteEwesLact4, varE = resVar,
-                                 mean = meanLac4, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact4, yearEffect = yearEffect, herds = herds)
 
     eliteEwesLact3 = setPhenoEwe(eliteEwesLact3, varE = resVar,
-                                 mean = meanLac3, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact3, yearEffect = yearEffect, herds = herds)
 
     eliteEwesLact2 = setPhenoEwe(eliteEwesLact2, varE = resVar,
-                                 mean = meanLac2, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact2, yearEffect = yearEffect, herds = herds)
 
     eliteEwesLact1 = setPhenoEwe(eliteEwesLact1, varE = resVar,
-                                 mean = meanLac1, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact1, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact4 = setPhenoEwe(damsOfFemalesLact4, varE = resVar,
-                                     mean = meanLac4, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact4, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact3 = setPhenoEwe(damsOfFemalesLact3, varE = resVar,
-                                     mean = meanLac3, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact3, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact2 = setPhenoEwe(damsOfFemalesLact2, varE = resVar,
-                                     mean = meanLac2, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact2, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact1 = setPhenoEwe(damsOfFemalesLact1, varE = resVar,
-                                     mean = meanLac1, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact1, yearEffect = yearEffect, herds = herds)
 
     database = setDatabasePheno(database, pop = eliteEwesLact4)
     database = setDatabasePheno(database, pop = eliteEwesLact3)
@@ -642,25 +680,33 @@ if (burnin) {
     database = setDatabasePheno(database, pop = damsOfFemalesLact2)
     database = setDatabasePheno(database, pop = damsOfFemalesLact1)
 
+    # ---- Genetic evaluation ----
+
+    cat("Genetic evaluation", as.character(Sys.time()), "\n")
+
     # We will remove male lambs from the evaluation - those that will never
-    #   contribute to next generations
+    #   contribute to next generations (we will still calculate their parent
+    #   average, but later)
+    # ... first we find all male lambs
     sel = database$General$Pop == "lambs" & database$General$Sex == "M"
     maleLambs = database$General[sel, "IId"]
+    # ... then we find those that were selected for reproduction
     sel = database$General$Pop %in% c("wtRams1", "ntlMatingRams")
     reproMales = database$General[sel, "IId"]
+    # ... the other were culled
     culledMaleLambs = maleLambs$IId[!maleLambs$IId %in% reproMales$IId]
     removeCulledMaleLambs = row.names(SP$pedigree) %in% culledMaleLambs
     # sum(removeCulledMaleLambs); sum(!removeCulledMaleLambs)
-    
+
     variances = list(varPE = permVar,
                      varA  = addVar,
                      varE  = resVar)
-    
+
     pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
                                     database = database,
                                     vars = variances,
                                     removeFromEvaluation = removeCulledMaleLambs)
-    
+
     # Set EBVs for every population
     eliteSires3 = setEbv(eliteSires3, ebv = pedEbv)
     eliteSires2 = setEbv(eliteSires2, ebv = pedEbv)
@@ -683,7 +729,7 @@ if (burnin) {
     damsOfFemalesLact2 = setEbv(damsOfFemalesLact2, ebv = pedEbv)
     damsOfFemalesLact1 = setEbv(damsOfFemalesLact1, ebv = pedEbv)
     damsOfFemales = setEbv(damsOfFemales, ebv = pedEbv)
-    # ... we could use setEbv(), but we have excluded some culled lambs from the
+    # ... we could use setEbv(lambs), but we have excluded culled lambs from the
     #     evaluation so we will just calculate parent average for all lambs - this
     #     works for pedigree BLUP, but not for genomic BLUP (if some lambs would
     #     have been genotyped)
@@ -691,7 +737,7 @@ if (burnin) {
     selM = match(x = lambs@mother, table = pedEbv$IId)
     selF = match(x = lambs@father, table = pedEbv$IId)
     lambs@ebv = as.matrix((pedEbv[selM, -1] + pedEbv[selF, -1]) / 2)
-    
+
     # Save current EBVs into the database
     database = setDatabaseEbv(database, pop = eliteSires3)
     database = setDatabaseEbv(database, pop = eliteSires2)
@@ -715,15 +761,7 @@ if (burnin) {
     database = setDatabaseEbv(database, pop = damsOfFemalesLact1)
     # database = setDatabaseEbv(database, pop = damsOfFemales) # we didn't save this pop in the database
     database = setDatabaseEbv(database, pop = lambs)
-    
-    # TODO: if we have done it above then we don't need to do it here again
-    # eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
-    # damsOfFemales = c(damsOfFemalesLact1, damsOfFemalesLact2, damsOfFemalesLact3, damsOfFemalesLact4)
-    
-    # ---- Summarising results ----
-    
-    cat("... Summarising results", as.character(Sys.time()), "\n")
-    
+
     correlation = data.frame(year = year,
                              eliteSires3 = ebvAccuracy(eliteSires3),
                              eliteSires2 = ebvAccuracy(eliteSires2),
@@ -749,10 +787,10 @@ if (burnin) {
                              lambs = ebvAccuracy(lambs))
     add = ifelse(year == 1, FALSE, TRUE)
     write.table(x = correlation, file = "ebvAccuracy.txt", append = add, col.names = !add)
-    
-    # ---- Rams ----
 
-    cat("Rams\n")
+    # ---- Select rams ----
+
+    cat("Select rams\n")
 
     # ---- ... Elite sires ----
 
@@ -771,7 +809,8 @@ if (burnin) {
                               use = use)
     }
 
-    # Don't create eliteSires here!
+    # Don't create eliteSires here! Because we require old set of eliteSires in
+    #   the next steps. We will create this combined population after that;)
 
     # ---- ... Sires of females ----
 
@@ -806,14 +845,14 @@ if (burnin) {
     ntlMatingRams =  selectInd(pop = lambs[selNtlRams], nInd = nNaturalMatingRams,
                                use = use, famType = "M", sex = "M")
 
-    # Have to do it here since we need to keep track of previous eliteSires in
-    #   the above steps
+    # Now we can recreate the eliteSires population (we require the old set of
+    #   eliteSires in the above steps)
     eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
     siresOfFemales = c(siresOfFemales3, siresOfFemales2, siresOfFemales1)
 
-    # ---- Ewes ----
+    # ---- Select ewes ----
 
-    cat("Ewes\n")
+    cat("Select ewes\n")
 
     # ---- ... Elite ewes ----
 
@@ -824,14 +863,13 @@ if (burnin) {
     ewesLact2 = c(damsOfFemalesLact2, eliteEwesLact2)
     ewesLact1 = c(damsOfFemalesLact1, eliteEwesLact1)
 
-    # TODO: Selecting across all ewes, but should we focus on daughters of AI sires only?
-    #       Hence selectInd(eliteEwesLact3, ...)?
-    #  yes the elite ewes are the daughters of AI sires, but we were saying that since we are choosing them based 
-    #  on their EBVs the majority have to be from elite sire no? or better to add this criterion (daughter of AI sires)? 
     eliteEwesLact4 = selectInd(ewesLact3, nInd = nEliteEwesLact4, use = use) # eliteEwesLact4 are 4 years old here
     eliteEwesLact3 = selectInd(ewesLact2, nInd = nEliteEwesLact3, use = use) # eliteEwesLact3 are 3 years old here
     eliteEwesLact2 = selectInd(ewesLact1, nInd = nEliteEwesLact2, use = use) # eliteEwesLact2 are 2 years old here
     eliteEwesLact1 = selectInd(lambs[selNtlRams], nInd = nEliteEwesLact1, use = use, sex = "F", famType = "M") # eliteEwesLact1 are 1 years old here
+    # Note that eliteEwes are in reality selected only from AI sires only, hence
+    #   we should use selectInd(eliteEwesLact3, ...), but if we select on EBV we
+    #   should grab the best females anyway!
 
     # Set phenotypes to missing, because these are copied from the previous lactation.
     #   We do this because of the recordData() call below - that would save wrong
@@ -859,8 +897,11 @@ if (burnin) {
 
     damsOfFemalesLact1 = selectInd(pop = lambs[!lambs@id %in% eliteEwesLact1@id],
                                   nInd = nDamsOfFemalesLact1, use = "rand", sex = "F") # damsOfFemalesLact1 are 1 years old here
-
-    # TODO: we should revise these ages above - are damsOfFemalesLact1 really 1 year old here?
+    # If you are confused about the ages note that:
+    #   - these lambs were generated in previous year (year - 1)
+    #   - now they are in 1 year old (year)
+    #   - lactation phenotype will be generated next year (year + 2)
+    #     (at the beginning of the year)
 
     # Set phenotypes to missing, because these are copied from the previous lactation.
     #   We do this because of the recordData() call below - that would save wrong
@@ -873,27 +914,30 @@ if (burnin) {
 
     damsOfFemales = c(damsOfFemalesLact4, damsOfFemalesLact3, damsOfFemalesLact2, damsOfFemalesLact1)
 
-    # ---- Lambs ----
+    # ---- Generate lambs ----
 
-    cat("Lambs", as.character(Sys.time()), "\n")
+    cat("Generate lambs", as.character(Sys.time()), "\n")
 
     matingPlan1 = cbind(eliteEwes@id,
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
-    n = n1 - nEliteEwes
+    n = nLambsFromAIEliteSires - nEliteEwes
     damsOfFemalesId = damsOfFemales@id
     damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
     matingPlan2 = cbind(damsOfFemalesIdForElite,
                         sample(eliteSires@id, size = n, replace = TRUE))
 
-    n = nDamsOfFemales - (n1 - nEliteEwes)
+    n = nDamsOfFemales - (nLambsFromAIEliteSires - nEliteEwes)
     damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
-    # TODO: Is is good like this?
     matingPlan3 = cbind(damsOfFemalesIdForRest,
-                        sample(c(siresOfFemales@id, size = n2, replace = TRUE),
-                        sample(wtRams1@id, size = n3, replace = TRUE),
-                        sample(ntlMatingRams@id, size = n4, replace = TRUE)))
-    
+                        sample(c(sample(siresOfFemales@id, size = n2, replace = TRUE),
+                                 sample(wtRams1@id, size = n3, replace = TRUE),
+                                 sample(ntlMatingRams@id, size = n4, replace = TRUE))))
+    # Note that:
+    # 1) sample(pop, size = n, replace = TRUE) gives us n contributions from pop
+    # 2) sample(c(sample(), sample(), sample())) shuffles selected male contributions
+    #    across female contributions (=random mating)
+
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
                        males = c(eliteSires, siresOfFemales, wtRams1, ntlMatingRams),
@@ -902,9 +946,9 @@ if (burnin) {
                        mothers = c(eliteEwes, damsOfFemales),
                        permEnvVar = permVar, year = yearFull)
 
-    # ---- Data recording & estimating breeding values ----
+    # ---- Data recording ----
 
-    cat("... Data recording & estimating breeding values", as.character(Sys.time()), "\n")
+    cat("Data recording", as.character(Sys.time()), "\n")
 
     database = recordData(database, pop = eliteSires3, year = yearFull)
     database = recordData(database, pop = eliteSires2, year = yearFull)
@@ -965,36 +1009,36 @@ if (scenarios) {
 
     cat("Year", year, " (", yearFull, ") ", as.character(Sys.time()), "\n")
 
-    yearEffect = sampleYearEffect()
-    herds$herdYearEffect = sampleHerdYearEffect(n = nHerds)
+    yearEffect = sampleEffect(n = 1, var = yearVar)
+    herds$herdYearEffect = sampleEffect(n = nHerds, var = herdYearVar)
 
     # ---- Phenotyping ----
 
     cat("Phenotyping", as.character(Sys.time()), "\n")
 
     eliteEwesLact4 = setPhenoEwe(eliteEwesLact4, varE = resVar,
-                                 mean = meanLac4, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact4, yearEffect = yearEffect, herds = herds)
 
     eliteEwesLact3 = setPhenoEwe(eliteEwesLact3, varE = resVar,
-                                 mean = meanLac3, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact3, yearEffect = yearEffect, herds = herds)
 
     eliteEwesLact2 = setPhenoEwe(eliteEwesLact2, varE = resVar,
-                                 mean = meanLac2, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact2, yearEffect = yearEffect, herds = herds)
 
     eliteEwesLact1 = setPhenoEwe(eliteEwesLact1, varE = resVar,
-                                 mean = meanLac1, yearEffect = yearEffect, herds = herds)
+                                 mean = meanLact1, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact4 = setPhenoEwe(damsOfFemalesLact4, varE = resVar,
-                                     mean = meanLac4, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact4, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact3 = setPhenoEwe(damsOfFemalesLact3, varE = resVar,
-                                     mean = meanLac3, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact3, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact2 = setPhenoEwe(damsOfFemalesLact2, varE = resVar,
-                                     mean = meanLac2, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact2, yearEffect = yearEffect, herds = herds)
 
     damsOfFemalesLact1 = setPhenoEwe(damsOfFemalesLact1, varE = resVar,
-                                     mean = meanLac1, yearEffect = yearEffect, herds = herds)
+                                     mean = meanLact1, yearEffect = yearEffect, herds = herds)
 
     database = setDatabasePheno(database, pop = eliteEwesLact4)
     database = setDatabasePheno(database, pop = eliteEwesLact3)
@@ -1004,17 +1048,25 @@ if (scenarios) {
     database = setDatabasePheno(database, pop = damsOfFemalesLact3)
     database = setDatabasePheno(database, pop = damsOfFemalesLact2)
     database = setDatabasePheno(database, pop = damsOfFemalesLact1)
-    
+
+    # ---- Genetic evaluation ----
+
+    cat("Genetic evaluation", as.character(Sys.time()), "\n")
+
     # We will remove male lambs from the evaluation - those that will never
-    #   contribute to next generations
+    #   contribute to next generations (we will still calculate their parent
+    #   average, but later)
+    # ... first we find all male lambs
     sel = database$General$Pop == "lambs" & database$General$Sex == "M"
     maleLambs = database$General[sel, "IId"]
+    # ... then we find those that were selected for reproduction
     sel = database$General$Pop %in% c("wtRams1", "ntlMatingRams")
     reproMales = database$General[sel, "IId"]
+    # ... the other were culled
     culledMaleLambs = maleLambs$IId[!maleLambs$IId %in% reproMales$IId]
     removeCulledMaleLambs = row.names(SP$pedigree) %in% culledMaleLambs
     # sum(removeCulledMaleLambs); sum(!removeCulledMaleLambs)
-    
+
     if (scenario %in% c("std", "stdOCS")) {
       variances = list(varPE = permVar,
                        varA  = addVar,
@@ -1025,12 +1077,12 @@ if (scenarios) {
                        varIDL = idlVar,
                        varE  = resVar)
     }
-    
+
     pedEbv = estimateBreedingValues(pedigree = SP$pedigree,
                                     database = database,
                                     vars = variances,
                                     removeFromEvaluation = removeCulledMaleLambs)
-    
+
     # Set EBVs for every population
     eliteSires3 = setEbv(eliteSires3, ebv = pedEbv)
     eliteSires2 = setEbv(eliteSires2, ebv = pedEbv)
@@ -1053,7 +1105,7 @@ if (scenarios) {
     damsOfFemalesLact2 = setEbv(damsOfFemalesLact2, ebv = pedEbv)
     damsOfFemalesLact1 = setEbv(damsOfFemalesLact1, ebv = pedEbv)
     damsOfFemales = setEbv(damsOfFemales, ebv = pedEbv)
-    # ... we could use setEbv(), but we have excluded some culled lambs from the
+    # ... we could use setEbv(lambs), but we have excluded culled lambs from the
     #     evaluation so we will just calculate parent average for all lambs - this
     #     works for pedigree BLUP, but not for genomic BLUP (if some lambs would
     #     have been genotyped)
@@ -1061,7 +1113,7 @@ if (scenarios) {
     selM = match(x = lambs@mother, table = pedEbv$IId)
     selF = match(x = lambs@father, table = pedEbv$IId)
     lambs@ebv = as.matrix((pedEbv[selM, -1] + pedEbv[selF, -1]) / 2)
-    
+
     # Save current EBVs into the database
     database = setDatabaseEbv(database, pop = eliteSires3)
     database = setDatabaseEbv(database, pop = eliteSires2)
@@ -1085,16 +1137,7 @@ if (scenarios) {
     database = setDatabaseEbv(database, pop = damsOfFemalesLact1)
     # database = setDatabaseEbv(database, pop = damsOfFemales) # we didn't save this pop in the database
     database = setDatabaseEbv(database, pop = lambs)
-    
-    # TODO: if we have done it above then we don't need to do it here again
-    # TODO: answer: we do not need it to update the values of the EBV for the accuracies below?
-    # eliteEwes = c(eliteEwesLact1, eliteEwesLact2, eliteEwesLact3, eliteEwesLact4)
-    # damsOfFemales = c(damsOfFemalesLact1, damsOfFemalesLact2, damsOfFemalesLact3, damsOfFemalesLact4)
-    
-    # ---- Summarising results ----
-    
-    cat("... Summarising results", as.character(Sys.time()), "\n")
-    
+
     correlation = data.frame(year = year,
                              eliteSires3 = ebvAccuracy(eliteSires3),
                              eliteSires2 = ebvAccuracy(eliteSires2),
@@ -1119,10 +1162,26 @@ if (scenarios) {
                              damsOfFemales = ebvAccuracy(damsOfFemales),
                              lambs = ebvAccuracy(lambs))
     write.table(x = correlation, file = "ebvAccuracy.txt", append = TRUE, col.names = FALSE)
-    
-    # ---- Rams ----
 
-    cat("Rams\n")
+    if (scenario %in% c("stdOCS", "idlOCS")) {
+      # ---- Optimise contributions ----
+
+      cat("Optimise contributions", as.character(Sys.time()), "\n")
+
+      ped = pedigree(sire = SP$pedigree[, "father"],
+                     dam  = SP$pedigree[, "mother"],
+                     label= 1:SP$lastId)
+      pedNrmInv = getAInv(ped)
+
+      # TODO: which animals go where?
+      # pedNrm = getPedNrmSubset(pedNrmInv, ind = 5:6, sum = 7:8))
+
+      stop("WORK IN PROGRESS: OCS Not completed!")
+    }
+
+    # ---- Select rams ----
+
+    cat("Select rams\n")
 
     # ---- ... Elite sires ----
 
@@ -1141,8 +1200,8 @@ if (scenarios) {
                               use = use)
     }
 
-    # Don't create eliteSires here!
-    # Why? 
+    # Don't create eliteSires here! Because we require old set of eliteSires in
+    #   the next steps. We will create this combined population after that;)
 
     # ---- ... Sires of females ----
 
@@ -1177,14 +1236,14 @@ if (scenarios) {
     ntlMatingRams =  selectInd(pop = lambs[selNtlRams], nInd = nNaturalMatingRams,
                                use = use, famType = "M", sex = "M")
 
-    # Have to do it here since we need to keep track of previous eliteSires in
-    #   the above steps
+    # Now we can recreate the eliteSires population (we require the old set of
+    #   eliteSires in the above steps)
     eliteSires = c(eliteSires3, eliteSires2, eliteSires1)
     siresOfFemales = c(siresOfFemales3, siresOfFemales2, siresOfFemales1)
 
-    # ---- Ewes ----
+    # ---- Select ewes ----
 
-    cat("Ewes\n")
+    cat("Select ewes\n")
 
     # ---- ... Elite ewes ----
 
@@ -1195,14 +1254,13 @@ if (scenarios) {
     ewesLact2 = c(damsOfFemalesLact2, eliteEwesLact2)
     ewesLact1 = c(damsOfFemalesLact1, eliteEwesLact1)
 
-    # TODO: Selecting across all ewes, but should we focus on daughters of AI sires only?
-    #       Hence selectInd(eliteEwesLact3, ...)?
-    #  yes the elite ewes are the daughters of AI sires, but we were saying that since we are choosing them based 
-    #  on their EBVs the majority have to be from elite sire no? or better to add this criterion (daughter of AI sires)? 
     eliteEwesLact4 = selectInd(ewesLact3, nInd = nEliteEwesLact4, use = use) # eliteEwesLact4 are 4 years old here
     eliteEwesLact3 = selectInd(ewesLact2, nInd = nEliteEwesLact3, use = use) # eliteEwesLact3 are 3 years old here
     eliteEwesLact2 = selectInd(ewesLact1, nInd = nEliteEwesLact2, use = use) # eliteEwesLact2 are 2 years old here
     eliteEwesLact1 = selectInd(lambs[selNtlRams], nInd = nEliteEwesLact1, use = use, sex = "F", famType = "M") # eliteEwesLact1 are 1 years old here
+    # Note that eliteEwes are in reality selected only from AI sires only, hence
+    #   we should use selectInd(eliteEwesLact3, ...), but if we select on EBV we
+    #   should grab the best females anyway!
 
     # Set phenotypes to missing, because these are copied from the previous lactation.
     #   We do this because of the recordData() call below - that would save wrong
@@ -1231,8 +1289,6 @@ if (scenarios) {
     damsOfFemalesLact1 = selectInd(pop = lambs[!lambs@id %in% eliteEwesLact1@id],
                                    nInd = nDamsOfFemalesLact1, use = "rand", sex = "F") # damsOfFemalesLact1 are 1 years old here
 
-    # TODO: we should revise these ages above - are damsOfFemalesLact1 really 1 year old here?
-
     # Set phenotypes to missing, because these are copied from the previous lactation.
     #   We do this because of the recordData() call below - that would save wrong
     #   phenotypes for these animals in this life stage! Correct phenotypes for these
@@ -1244,28 +1300,29 @@ if (scenarios) {
 
     damsOfFemales = c(damsOfFemalesLact4, damsOfFemalesLact3, damsOfFemalesLact2, damsOfFemalesLact1)
 
-    # ---- Lambs ----
+    # ---- Generate lambs ----
 
-    cat("Lambs", as.character(Sys.time()), "\n")
+    cat("Generate lambs", as.character(Sys.time()), "\n")
 
     matingPlan1 = cbind(eliteEwes@id,
                         sample(eliteSires@id, size = nEliteEwes, replace = TRUE))
 
-    n = n1 - nEliteEwes
+    n = nLambsFromAIEliteSires - nEliteEwes
     damsOfFemalesId = damsOfFemales@id
     damsOfFemalesIdForElite = sample(damsOfFemalesId, size = n)
     matingPlan2 = cbind(damsOfFemalesIdForElite,
                         sample(eliteSires@id, size = n, replace = TRUE))
 
-    n = nDamsOfFemales - (n1 - nEliteEwes)
+    n = nDamsOfFemales - (nLambsFromAIEliteSires - nEliteEwes)
     damsOfFemalesIdForRest = damsOfFemalesId[!damsOfFemalesId %in% damsOfFemalesIdForElite]
-    # matingPlan3 = cbind(damsOfFemalesIdForRest,
-    #                     sample(c(siresOfFemales@id, wtRams1@id, ntlMatingRams@id), size = n, replace = TRUE))
-    # TODO: here I added the number of contribution of each category is it correct like this?
     matingPlan3 = cbind(damsOfFemalesIdForRest,
-                        sample(c(siresOfFemales@id, size = n2, replace = TRUE),
-                        sample(wtRams1@id, size = n3, replace = TRUE),
-                        sample(ntlMatingRams@id, size = n4, replace = TRUE)))
+                        sample(c(sample(siresOfFemales@id, size = n2, replace = TRUE),
+                                 sample(wtRams1@id, size = n3, replace = TRUE),
+                                 sample(ntlMatingRams@id, size = n4, replace = TRUE))))
+    # Note that:
+    # 1) sample(pop, size = n, replace = TRUE) gives us n contributions from pop
+    # 2) sample(c(sample(), sample(), sample())) shuffles selected male contributions
+    #    across female contributions (=random mating)
 
     matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
     lambs = makeCross2(females = c(eliteEwes, damsOfFemales),
@@ -1275,9 +1332,9 @@ if (scenarios) {
                        mothers = c(eliteEwes, damsOfFemales),
                        permEnvVar = permVar, year = yearFull)
 
-    # ---- Data recording & estimating breeding values ----
+    # ---- Data recording ----
 
-    cat("... Data recording & estimating breeding values", as.character(Sys.time()), "\n")
+    cat("Data recording", as.character(Sys.time()), "\n")
 
     database = recordData(database, pop = eliteSires3, year = yearFull)
     database = recordData(database, pop = eliteSires2, year = yearFull)
@@ -1302,7 +1359,6 @@ if (scenarios) {
     # database = recordData(database, pop = damsOfFemales, year = yearFull, lactation = ???) # can not save like this since lactations vary
     database = recordData(database, pop = lambs, year = yearFull)
 
- 
     # Save workspace image
     # fileName = paste("scenario_year", year, ".RData", sep = "")
     # save.image(file = fileName)
