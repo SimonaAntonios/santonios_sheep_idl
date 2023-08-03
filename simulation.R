@@ -168,23 +168,23 @@ nLambsFromAIForPT = round(nWtRams1 * nWtRamsAIDose * AILambRate) # 9,180
 nLambsFromAIRest = round((nEwesInAI - (nAISiresOfSires * nAISiresOfSiresDose + nWtRams1 * nWtRamsAIDose)) * AILambRate) # 10,980
 nLambsFromNM = round(nNMSires * nNMDose * NMLambRate) # 37,800
 
-pDamsOfDamsLact1 = 0.30                                                         # prop. of Dams Of Dams in lactation X
-pDamsOfDamsLact2 = 0.28
-pDamsOfDamsLact3 = 0.24
-pDamsOfDamsLact4 = 0.18
-nDamsOfDamsLact1 = round(pDamsOfDamsLact1 * nDamsOfDams)                  # no. of Dams Of Dams in lactation X
-nDamsOfDamsLact2 = round(pDamsOfDamsLact2 * nDamsOfDams)
-nDamsOfDamsLact3 = round(pDamsOfDamsLact3 * nDamsOfDams)
-nDamsOfDamsLact4 = round(pDamsOfDamsLact4 * nDamsOfDams)
+pDamsOfDamsLact1 = 0.30                                                         # prop. of Dams Of Dams in lactation 1
+pDamsOfDamsLact2 = 0.28                                                         # prop. of Dams Of Dams in lactation 2
+pDamsOfDamsLact3 = 0.24                                                         # prop. of Dams Of Dams in lactation 3
+pDamsOfDamsLact4 = 0.18                                                         # prop. of Dams Of Dams in lactation 4
+nDamsOfDamsLact1 = round(pDamsOfDamsLact1 * nDamsOfDams)                  # no. of Dams Of Dams in lactation 1
+nDamsOfDamsLact2 = round(pDamsOfDamsLact2 * nDamsOfDams)                  # no. of Dams Of Dams in lactation 2
+nDamsOfDamsLact3 = round(pDamsOfDamsLact3 * nDamsOfDams)                  # no. of Dams Of Dams in lactation 3
+nDamsOfDamsLact4 = round(pDamsOfDamsLact4 * nDamsOfDams)                  # no. of Dams Of Dams in lactation 4
 
-pDamsOfSiresLact1     = 0.23                                                         # prop. of Dams Of Sires in lactation X
-pDamsOfSiresLact2     = 0.35
-pDamsOfSiresLact3     = 0.26
-pDamsOfSiresLact4     = 0.16
-nDamsOfSiresLact1     = round(pDamsOfSiresLact1 * nDamsOfSires)                          # no. of Dams Of Sires in lactation X
-nDamsOfSiresLact2     = round(pDamsOfSiresLact2 * nDamsOfSires)
-nDamsOfSiresLact3     = round(pDamsOfSiresLact3 * nDamsOfSires)
-nDamsOfSiresLact4     = round(pDamsOfSiresLact4 * nDamsOfSires)
+pDamsOfSiresLact1     = 0.23                                                         # prop. of Dams Of Sires in lactation 1                                                         # prop. of Dams Of Sires in lactation X
+pDamsOfSiresLact2     = 0.35                                                         # prop. of Dams Of Sires in lactation 2
+pDamsOfSiresLact3     = 0.26                                                         # prop. of Dams Of Sires in lactation 3
+pDamsOfSiresLact4     = 0.16                                                         # prop. of Dams Of Sires in lactation 4
+nDamsOfSiresLact1     = round(pDamsOfSiresLact1 * nDamsOfSires)                          # no. of Dams Of Sires in lactation 1
+nDamsOfSiresLact2     = round(pDamsOfSiresLact2 * nDamsOfSires)                          # no. of Dams Of Sires in lactation 2
+nDamsOfSiresLact3     = round(pDamsOfSiresLact3 * nDamsOfSires)                          # no. of Dams Of Sires in lactation 3
+nDamsOfSiresLact4     = round(pDamsOfSiresLact4 * nDamsOfSires)                          # no. of Dams Of Sires in lactation 4
 
 startYear           = 1980                                                         # start year of the simulations
 
