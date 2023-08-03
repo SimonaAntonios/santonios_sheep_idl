@@ -191,6 +191,7 @@ startYear           = 1980                                                      
 nHerds              = 237                                                          # number of herds
 meanHerdSize        = 320                                                          # average herd size
 sdHerdSize          = 129                                                          # sd of herd size
+genInt              = 4                                                            # generation interval
 
 # Genome parameters:
 BaseNe              = 150                                                          # effective population size
@@ -1175,7 +1176,60 @@ if (scenarios) {
 
       # TODO: which animals go where?
       # pedNrm = getPedNrmSubset(pedNrmInv, ind = 5:6, sum = 7:8))
-
+      selectionCandidates <- wtRams2@id
+      females1 <- damsOfSires@id
+      females2 <- damsOfDams@id
+      A22Collapsed <- getPedNrmSubset(pedNrmInv, ind = selectionCandidates,
+                                      sum = list(females1 = females1,
+                                                 females2 = females2))
+      
+      #  constructing the pedigree with all the required information
+      pedig <-  data.frame(IId = as.character(1:SP$lastId),
+                           Sire = as.character(SP$pedigree[, "father"]),
+                           Dam  = as.character(SP$pedigree[, "mother"]))
+      # addding the EBV for each individual in the pedigree
+      databaseGeneral <- data.frame(database$General)
+      baseData <- select(databaseGeneral, c("IId", "Sex", "YearOfBirth", "Year", "Pop")) # should I select pop here? because an animal can have different categories during is lifetime
+      baseData <- baseData %>% distinct(Year, .keep_all = T) # here to remove the duplicated animal
+      
+      # EBV
+      # TODO I need to choose here the last EBV of the animals, so this means the EBV of the animals in the curent year no, so should I filter in the databaseGeneral, year == yearFull?
+      # databaseEbv <- data.frame(database$Ebv)
+      # databaseGenEbv <- cbind(databaseGeneral, databaseEbv)
+      # baseData <- select(databaseGenEbv, c("IId", "Sex", "YearOfBirth", "EBV"))
+      
+      # to have a data with all the individuals in the pedigree with their EBV and year of birth and sex
+      baseData <- pedig %>% left_join(baseData)
+      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "Born", "Year", "Pop") # Renaming columns
+      baseData$Sex <- ifelse(baseData$Sex == "M", "male", "female") # Renaming sex variable
+      
+      # calculating the percentage of the males and females that are in each year
+      cont <- agecont(Pedig = baseData, baseData$Indiv, maxAge = 25)
+      
+      # TODO do we need to calculate pkin and to keep only the ales that we want to apply OCS on? or here we will use the A22 collapsed?
+      pKin    <- pedIBD(baseData, keep.only=(baseData$Pop == "wtRams2"))
+      
+      # candes contains all information required to describe the selection candidates, which are the phenptypes and the kinships. 
+      # The current values of the parameters in the population and the available objective functions and constraints for OCS are shown. 
+      # Generations are defined to be non-overlapping if argument cont is omitted.
+      cand <- candes(phen = baseData, pKin = A22Collapsed, cont=cont)
+      # TODO I am receiving this message after runing cand
+      # There are NA-values in column 'Born'. These individuals can be 
+      # selection candidates but are ignored for computing population means.
+      # The population is evaluated at time 1990
+      # Breed missing has NA-sexes, so sexes are ignored for this breed.
+      # Error in extractKinships(list(...), phen, BreedNames) : 
+      #   All '...' arguments must have class 'quadFun', 'ratioFun', or 'matrix'.
+      
+      #  Maximize Genetic Gain and restraining inbreeding
+      con <- list(
+        uniform = "female",
+        ub.pKin = 1-(1-cand$mean$pKin)*(1-1/(2*Ne))^(1/genInt)
+      )
+      
+      # Is it correct to combine both max.ebv and min.pKin? 
+      Offspring <- opticont(c("max.EBV","min.pKin", cand, con))
+                            
       stop("WORK IN PROGRESS: OCS Not completed!")
     }
 
