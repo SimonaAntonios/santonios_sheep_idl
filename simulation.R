@@ -105,6 +105,7 @@ library(degreenet)  # for simulation of herd sizes
 library(data.table) # for fast data operations (reading, writing, ...)
 library(pedigreemm) # for pedigree numerator relationship inverse matrix
 library(AlphaSimR)  # for stochastic simulation of a breeding programme
+library(pedigreeTools) # for new getPedNrmSubset function
 
 if (interactive()) {
   # Simona's folder
@@ -150,13 +151,13 @@ nDamsOfDams      = 60600
 
 nWtRams1            = 150                                                          # no. of waiting rams for progeny testing
 nWtRams2            = 150                                                          # no. of waiting rams for progeny testing
-nAISiresOfSires1        = 10                                                           # no. of   AI Sires Of Siresselected every year (for the x-th year of AI)
-nAISiresOfSires2        = 10
-nAISiresOfSires3        = 10
+nAISiresOfSires1        = 10                                                           # no. of   AI Sires Of Sires selected every year (for the first year)
+nAISiresOfSires2        = 10                                                           # no. of   AI Sires Of Sires selected every year (for the second year)
+nAISiresOfSires3        = 10                                                           # no. of   AI Sires Of Sires selected every year (for the third year)
 nAISiresOfSires         = nAISiresOfSires1 + nAISiresOfSires2 + nAISiresOfSires3
-nAISiresOfDams1    = 55                                                           # no. of   AI Sires Of Siresof dams selected every year (for the x-th year)
-nAISiresOfDams2    = 55
-nAISiresOfDams3    = 55
+nAISiresOfDams1    = 55                                                           # no. of   AI Sires Of Siresof dams selected every year (for the first year)
+nAISiresOfDams2    = 55                                                           # no. of   AI Sires Of Siresof dams selected every year (for the second year)
+nAISiresOfDams3    = 55                                                           # no. of   AI Sires Of Siresof dams selected every year (for the third year)
 nNMSires  = 1000                                                         # no. of NM sires selected every year
 nAISiresOfSiresDose      = 400                                                          # no. of AI doses per AI Sire Of Sires
 nWtRamsAIDose       = 85                                                           # no. of AI doses per wating ram
@@ -177,7 +178,7 @@ nDamsOfDamsLact2 = round(pDamsOfDamsLact2 * nDamsOfDams)                  # no. 
 nDamsOfDamsLact3 = round(pDamsOfDamsLact3 * nDamsOfDams)                  # no. of Dams Of Dams in lactation 3
 nDamsOfDamsLact4 = round(pDamsOfDamsLact4 * nDamsOfDams)                  # no. of Dams Of Dams in lactation 4
 
-pDamsOfSiresLact1     = 0.23                                                         # prop. of Dams Of Sires in lactation 1                                                         # prop. of Dams Of Sires in lactation X
+pDamsOfSiresLact1     = 0.23                                                         # prop. of Dams Of Sires in lactation 1 
 pDamsOfSiresLact2     = 0.35                                                         # prop. of Dams Of Sires in lactation 2
 pDamsOfSiresLact3     = 0.26                                                         # prop. of Dams Of Sires in lactation 3
 pDamsOfSiresLact4     = 0.16                                                         # prop. of Dams Of Sires in lactation 4
@@ -1172,7 +1173,8 @@ if (scenarios) {
       ped = pedigree(sire = SP$pedigree[, "father"],
                      dam  = SP$pedigree[, "mother"],
                      label= 1:SP$lastId)
-      pedNrmInv = getAInv(ped)
+     
+      pedNrmInv = pedigreeTools::getAInv(ped)
 
       # TODO: which animals go where?
       # pedNrm = getPedNrmSubset(pedNrmInv, ind = 5:6, sum = 7:8))
@@ -1183,53 +1185,111 @@ if (scenarios) {
                                       sum = list(females1 = females1,
                                                  females2 = females2))
       
-      #  constructing the pedigree with all the required information
-      pedig <-  data.frame(IId = as.character(1:SP$lastId),
-                           Sire = as.character(SP$pedigree[, "father"]),
-                           Dam  = as.character(SP$pedigree[, "mother"]))
-      # addding the EBV for each individual in the pedigree
+      # ---- testing to construct data with 150 wtRams2 and the 9180 damsOfDams that will mate them (nLambsFromAIForPT = 9180)  ----
+      # TODO in this part the females that I need to select are the females that will be mated to the wtRams1, so I should sample from the damsOfDams n = nLambsFromAIForPT (number of lambs from matings with wtRams1)
+      # because the wtRams1 mate only with the damsOfDams
+      
+      # Prepare a pedigree
       databaseGeneral <- data.frame(database$General)
-      baseData <- select(databaseGeneral, c("IId", "Sex", "YearOfBirth", "Year", "Pop")) # should I select pop here? because an animal can have different categories during is lifetime
-      baseData <- baseData %>% distinct(Year, .keep_all = T) # here to remove the duplicated animal
+      databaseEbv <- data.frame(database$Ebv)  # extract the EBV for each individual
+      baseData <- cbind(databaseGeneral, databaseEbv) # bind both data
+      baseData <- select(baseData, c("IId", "FId", "MId", "Sex", "YearOfBirth", "EBV", "Year", "Pop")) %>%
+        filter(Pop != "AISiresOfSires" , Pop != "AISiresOfDams") # selecting the coluns and removing the "AISiresOfSires" and "AISiresOfDams" to avoid the dupicated animals
+      baseData <- baseData %>%
+        filter(Year == (yearFull)) # selecting the last year to have the last information only for each animal
+      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "YearOfBirth", "EBV", "Year", "Pop")  # Renaming columns in a way that works for optiSel functions
+      # changing the Sex from "F" and "M" to "females" and "males" for the agecont function 
+      baseData$Sex <- ifelse(baseData$Sex == "M", "male", "female")  # Renaming sex variable
       
-      # EBV
-      # TODO I need to choose here the last EBV of the animals, so this means the EBV of the animals in the curent year no, so should I filter in the databaseGeneral, year == yearFull?
-      # databaseEbv <- data.frame(database$Ebv)
-      # databaseGenEbv <- cbind(databaseGeneral, databaseEbv)
-      # baseData <- select(databaseGenEbv, c("IId", "Sex", "YearOfBirth", "EBV"))
+      Pedig = prePed(baseData) # Preparing the pedigree
+      # Sampling the damsOfDams and binding them with the wtRams1
+      damsOfDamsData <- baseData %>% filter(Pop %in% c("damsOfDamsLact1","damsOfDamsLact2","damsOfDamsLact3","damsOfDamsLact4"))
+      damsMateWtRams <- damsOfDamsData[sample(nrow(damsOfDamsData), size=nLambsFromAIForPT),] # to sample ndams = nLambsFromAIForPT to mate with the 150 wtRams1
+      baseData9180 <- baseData %>% filter(Pop == "wtRams1") %>% rows_insert(damsMateWtRams)
+
+      # creating generations 
+      baseData9180$Born <- 0
+      baseData9180$Born[baseData9180$YearOfBirth >= 1980 & baseData9180$YearOfBirth < 1984] = 1 
+      baseData9180$Born[baseData9180$YearOfBirth >= 1984 & baseData9180$YearOfBirth < 1988] = 2
+      baseData9180$Born[baseData9180$YearOfBirth >= 1988 & baseData9180$YearOfBirth < 1992] = 3
+      baseData9180$Born[baseData9180$YearOfBirth >= 1992 & baseData9180$YearOfBirth < 1996] = 4
+      baseData9180$Born[baseData9180$YearOfBirth >= 1996 & baseData9180$YearOfBirth < 2000] = 5
+      baseData9180$Born[baseData9180$YearOfBirth >= 2000 & baseData9180$YearOfBirth < 2004] = 6
+      baseData9180$Born[baseData9180$YearOfBirth >= 2008 & baseData9180$YearOfBirth < 2012] = 7
+      # defining the percentage which each age class represents in the population. 
+      cont <- agecont(Pedig = Pedig, baseData9180$Indiv, maxAge=NA)
+      # matrix containing the pedigree based kinship with the selected individuals 
+      pKin9180 = pedIBD(Pedig, keep.only = baseData9180$Indiv)
+      # to describe the selection candidates, which are the selected individuals and the kinships.
+      cand <- candes(phen = baseData9180, pKin = pKin9180, cont=cont)
+      cand$mean
+      #    YearOfBirth      EBV     Year        pKin
+      # 1    1587.689   48.17642  1589.135    0.00202017
+      # TODO If I do manually the calculation of the mean here's what I got why they are different from the cand$mean
+      mean(baseData9180$YearOfBirth)
+      # [1] 1987.734
+      mean(baseData9180$EBV)
+      # [1] 47.98131
+      mean(baseData9180$Year)
+      # [1] 1990
       
-      # to have a data with all the individuals in the pedigree with their EBV and year of birth and sex
-      baseData <- pedig %>% left_join(baseData)
-      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "Born", "Year", "Pop") # Renaming columns
-      baseData$Sex <- ifelse(baseData$Sex == "M", "male", "female") # Renaming sex variable
+      # list containing the constraints, females will have equal contributions
+      # here i defined the genInt = 4 and the Ne = BaseNe
+      Ne = BaseNe
+      genInt = 4
+      con <- list(
+        uniform = "female",
+        ub.pKin = 1-(1-cand$mean$pKin9180)*(1-1/(2*Ne))^(1/genInt)
+      )
+      # optimum contributions of the selection candidates
+      Offspring <- opticont("max.EBV", cand, con)
+      futureParents <- Offspring$parent
+      numberMate = noffspring(futureParents, N = 9180)
       
-      # calculating the percentage of the males and females that are in each year
-      cont <- agecont(Pedig = baseData, baseData$Indiv, maxAge = 25)
+      # ---- testing to construct data with 150 wtRams2 and the 2 females groups ----
+      # Creating the females data
+      femalesGroup <- data.frame(Indiv = as.character(c("females1", "females2")),
+                                 Sire = NA,
+                                 Dam = NA,
+                                 Sex = as.character("female"),
+                                 YearOfBirth = NA,
+                                 EBV = NA,
+                                 Year = NA,
+                                 Pop = as.character(c("damsOfSires", "damsOfDams")),
+                                 row.names = c("damsOfSires", "damsOfDams"))
+      # preparing the data for 152 animals/groups
+      baseData152 <- baseData %>% filter(Pop == "wtRams2") %>% rows_insert(femalesGroup)
+      # creating generations 
+      baseData152$Born <- NA
+      baseData152$Born[baseData152$YearOfBirth >= 1980 & baseData152$YearOfBirth < 1984] = 1 
+      baseData152$Born[baseData152$YearOfBirth >= 1984 & baseData152$YearOfBirth < 1988] = 2
+      baseData152$Born[baseData152$YearOfBirth >= 1988 & baseData152$YearOfBirth < 1992] = 3
+      baseData152$Born[baseData152$YearOfBirth >= 1992 & baseData152$YearOfBirth < 1996] = 4
+      baseData152$Born[baseData152$YearOfBirth >= 1996 & baseData152$YearOfBirth < 2000] = 5
+      baseData152$Born[baseData152$YearOfBirth >= 2000 & baseData152$YearOfBirth < 2004] = 6
+      baseData152$Born[baseData152$YearOfBirth >= 2008 & baseData152$YearOfBirth < 2012] = 7
       
-      # TODO do we need to calculate pkin and to keep only the ales that we want to apply OCS on? or here we will use the A22 collapsed?
-      pKin    <- pedIBD(baseData, keep.only=(baseData$Pop == "wtRams2"))
+      pKin152 = as.matrix(0.5*A22Collapsed, cont=NULL)
       
-      # candes contains all information required to describe the selection candidates, which are the phenptypes and the kinships. 
-      # The current values of the parameters in the population and the available objective functions and constraints for OCS are shown. 
-      # Generations are defined to be non-overlapping if argument cont is omitted.
-      cand <- candes(phen = baseData, pKin = A22Collapsed, cont=cont)
-      # TODO I am receiving this message after runing cand
+      cand152 <- candes(phen = baseData152, pKin = pKin152, cont=NULL)
       # There are NA-values in column 'Born'. These individuals can be 
       # selection candidates but are ignored for computing population means.
-      # The population is evaluated at time 1990
-      # Breed missing has NA-sexes, so sexes are ignored for this breed.
-      # Error in extractKinships(list(...), phen, BreedNames) : 
-      #   All '...' arguments must have class 'quadFun', 'ratioFun', or 'matrix'.
+      # The population is evaluated at time 3
+      # Number of individuals in age class 1:
+      #   
+      #   male
+      # missing  150
+      # Error in characterizeClasses(cont, breed, phen) : 
+      #   There is no missing from a youngest age class in the data set.
       
-      #  Maximize Genetic Gain and restraining inbreeding
-      con <- list(
+      con152 <- list(
         uniform = "female",
         ub.pKin = 1-(1-cand$mean$pKin)*(1-1/(2*Ne))^(1/genInt)
       )
+      Offspring152 <- opticont("max.EBV", cand, con)
+      futureParents152 <- Offspring$parent
+      numberMate152 = noffspring(futureParents, N = 9180)
       
-      # Is it correct to combine both max.ebv and min.pKin? 
-      Offspring <- opticont(c("max.EBV","min.pKin", cand, con))
-                            
       stop("WORK IN PROGRESS: OCS Not completed!")
     }
 
