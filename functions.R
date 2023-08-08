@@ -504,58 +504,173 @@ calcSummaryStat = function(pops, FUN, statName = deparse(substitute(FUN)), ...) 
 #' c(as.matrix(pedNrmSubsetFast))
 #'
 #' @export
-getPedNrmSubset <- function(pedNrmInv, ind, with = ind, sum = NULL) {
+# getPedNrmSubset <- function(pedNrmInv, ind, with = ind, sum = NULL) {
+#   indNames <- row.names(pedNrmInv)
+#   if (is.character(ind)) {
+#     ind <- match(x = ind, table = indNames, nomatch = 0)
+#   }
+#   if (is.character(with)) {
+#     with <- match(x = with, table = indNames, nomatch = 0)
+#     stop("WORK IN PROGRESS: Need to develop general approach for with!")
+#   }
+#   if (!is.null(sum)) {
+#     if (is.character(sum)) {
+#       sum <- match(x = sum, table = indNames, nomatch = 0)
+#     }
+#     test <- ind %in% sum
+#     if (any(test)) {
+#       warning("Some individuals in ind are present in sum\n",
+#               "These individuals will be removed from ind, but kept in sum!")
+#       ind <- ind[!test]
+#     }
+#     test <- with %in% sum
+#     if (any(test)) {
+#       warning("Some individuals in with are present in sum\n",
+#               "These individuals will be removed from with, but kept in sum!")
+#       with <- with[!test]
+#     }
+#   }
+#   nIndAll <- nrow(pedNrmInv)
+#   nInd <- length(ind)
+#   # A x = y
+#   # AInv A x = AInv y
+#   # x = AInv y
+#   # AInv y = x hence solving for y - matrix version of x and hence y
+#   x <- sparseMatrix(i = ind, j = 1:nInd,
+#                     dims = c(nIndAll, nInd))
+#   x <- as(x, "dMatrix")
+#   pedNrmSubset <- solve(pedNrmInv, x)[with, ]
+#   dimnames(pedNrmSubset) <- list(as.character(with), as.character(ind))
+#   if (!is.null(sum)) {
+#     # As above A x = y etc. but here we are doing a vector of y
+#     nSum <- length(sum)
+#     x <- sparseMatrix(i = sum, j = rep(1, times = nSum),
+#                       dims = c(nIndAll, 1))
+#     x <- as(x, "dMatrix")
+#     pedNrmSubsetSumTmp <- solve(pedNrmInv, x)
+#     pedNrmSubsetSumVec <- pedNrmSubsetSumTmp[ind, , drop = FALSE]
+#     dimnames(pedNrmSubsetSumVec) <- list(as.character(ind), "Sum")
+# 
+#     # We want x^TAx = y here, but we already have Ax = y so we just need x^Ty
+#     pedNrmSubsetSumScalar <- crossprod(x, pedNrmSubsetSumTmp)
+#     dimnames(pedNrmSubsetSumScalar) <- list("Sum", "Sum")
+#     pedNrmSubset <- rbind(cbind(pedNrmSubset,          pedNrmSubsetSumVec),
+#                           cbind(t(pedNrmSubsetSumVec), pedNrmSubsetSumScalar))
+#   }
+#   return(pedNrmSubset)
+# }
+# 
+# 
+# 
+
+getPedNrmSubset <- function(pedNrmInv, ind, with = NULL, sum = NULL) {
+  
+  # ---- Setup ----
+  
   indNames <- row.names(pedNrmInv)
   if (is.character(ind)) {
     ind <- match(x = ind, table = indNames, nomatch = 0)
   }
-  if (is.character(with)) {
-    with <- match(x = with, table = indNames, nomatch = 0)
+  if (is.null(with)) {
+    with <- ind
+  } else {
     stop("WORK IN PROGRESS: Need to develop general approach for with!")
+    if (is.character(with)) {
+      with <- match(x = with, table = indNames, nomatch = 0)
+    }
   }
+  nSumGroup <- 0
   if (!is.null(sum)) {
-    if (is.character(sum)) {
-      sum <- match(x = sum, table = indNames, nomatch = 0)
+    if (!is.list(sum)) {
+      sum <- list(sum)
     }
-    test <- ind %in% sum
-    if (any(test)) {
-      warning("Some individuals in ind are present in sum\n",
-              "These individuals will be removed from ind, but kept in sum!")
-      ind <- ind[!test]
+    nSumGroup <- length(sum)
+    sumGroupName <- names(sum)
+    if (is.null(sumGroupName)) {
+      sumGroupName <- paste0("sumGroup", 1:nSumGroup)
     }
-    test <- with %in% sum
-    if (any(test)) {
-      warning("Some individuals in with are present in sum\n",
-              "These individuals will be removed from with, but kept in sum!")
-      with <- with[!test]
+    for (sumGroup in 1:nSumGroup) {
+      if (is.character(sum[[sumGroup]])) {
+        sum[[sumGroup]] <- match(x = sum[[sumGroup]], table = indNames, nomatch = 0)
+      }
+      
+      test <- ind %in% sum[[sumGroup]]
+      if (any(test)) {
+        warning("Some individuals in ind are present in",
+                sumGroupName[sumGroup], "\n",
+                "These individuals will be removed from ind, but kept in",
+                sumGroupName[sumGroup], "!")
+        ind <- ind[!test]
+      }
+      
+      test <- with %in% sum[[sumGroup]]
+      if (any(test)) {
+        warning("Some individuals in with are present in",
+                sumGroupName[sumGroup], "\n",
+                "These individuals will be removed from with, but kept in",
+                sumGroupName[sumGroup], "!")
+        with <- with[!test]
+      }
     }
   }
+  
+  # ---- Calculations ----
+  
   nIndAll <- nrow(pedNrmInv)
   nInd <- length(ind)
-  # A x = y
-  # AInv A x = AInv y
-  # x = AInv y
-  # AInv y = x hence solving for y - matrix version of x and hence y
-  x <- sparseMatrix(i = ind, j = 1:nInd,
+  nIndPlusSumGroup <- nInd + nSumGroup
+  pedNrmSubset <- sparseMatrix(x = 1, i = 1, j = 1,
+                               dims = c(nIndPlusSumGroup, nIndPlusSumGroup),
+                               symmetric = TRUE)
+  # pedNrmSubset is dsCMatrix (symmetric sparse)
+  if (is.null(sum)) {
+    dimnames(pedNrmSubset) <- list(with, ind)
+  } else {
+    dimnames(pedNrmSubset) <- list(c(with, sumGroupName), c(ind, sumGroupName))
+  }
+  
+  # First the standard A part for selected individuals
+  # A x = y; if x is all 0s and a 1 in the k-th position then y is A[, k]
+  # inv(A) A x = inv(A) y
+  # inv(A) y = x; solve for y to get A[, k] - column
+  # inv(A) Y = X; solve for Y to get A[, k] - matrix
+  x <- sparseMatrix(x = 1, i = ind, j = 1:nInd,
                     dims = c(nIndAll, nInd))
-  x <- as(x, "dMatrix")
-  pedNrmSubset <- solve(pedNrmInv, x)[with, ]
-  dimnames(pedNrmSubset) <- list(as.character(with), as.character(ind))
+  # x is dgCMatrix (general sparse)
+  pedNrmSubset[1:nInd, 1:nInd] <- solve(pedNrmInv, x)[with, ]
+  # solve() gives dgCMatrix (general sparse), but since pedNrmSubset is already
+  # dsCMatrix (symmetric sparse) we retain this class;) Alternatively using
+  #   pedNrmSubset[] <- or pedNrmSubset <- solve()
+  # would give us dgCMatrix (general sparse), which we don't want and would have to cast
+  #   pedNrmSubset <- as(pedNrmSubset, "symmetricMatrix") # dsCMatrix (symmetric sparse)
+  
+  # Now the sum groups
   if (!is.null(sum)) {
-    # As above A x = y etc. but here we are doing a vector of y
-    nSum <- length(sum)
-    x <- sparseMatrix(i = sum, j = rep(1, times = nSum),
-                      dims = c(nIndAll, 1))
-    x <- as(x, "dMatrix")
+    # As above A x = y etc. but here we are using multiple 1s in y columns
+    i <- unlist(sum)
+    j <- rep(1:nSumGroup, times = sapply(X = sum, FUN = length))
+    x <- sparseMatrix(x = 1, i = i, j = j,
+                      dims = c(nIndAll, nSumGroup))
+    # x is dgCMatrix (general sparse)
     pedNrmSubsetSumTmp <- solve(pedNrmInv, x)
-    pedNrmSubsetSumVec <- pedNrmSubsetSumTmp[ind, , drop = FALSE]
-    dimnames(pedNrmSubsetSumVec) <- list(as.character(ind), "Sum")
-
+    # pedNrmSubsetSumTmp is dgCMatrix (general sparse)
+    
+    # Creating temporary A_group matrix that will be added to the A matrix
+    i <- rep(1:nInd, times = nSumGroup)
+    pos <- (nInd + 1):nIndPlusSumGroup
+    j <- rep(pos, each = nInd)
+    tmp <- sparseMatrix(x = pedNrmSubsetSumTmp[ind, ], i = i, j = j,
+                        dims = c(nIndPlusSumGroup, nIndPlusSumGroup),
+                        symmetric = TRUE)
+    # tmp is dsCMatrix (symmetric sparse)
+    
     # We want x^TAx = y here, but we already have Ax = y so we just need x^Ty
-    pedNrmSubsetSumScalar <- crossprod(x, pedNrmSubsetSumTmp)
-    dimnames(pedNrmSubsetSumScalar) <- list("Sum", "Sum")
-    pedNrmSubset <- rbind(cbind(pedNrmSubset,          pedNrmSubsetSumVec),
-                          cbind(t(pedNrmSubsetSumVec), pedNrmSubsetSumScalar))
+    tmp[pos, pos] <- crossprod(x, pedNrmSubsetSumTmp)
+    # crossprod() gives dgCMatrix (general sparse), but since tmp is already
+    # dsCMatrix (symmetric sparse) we retain this class;)
+    
+    # Add the Ax = y and x^Ty to A
+    pedNrmSubset <- pedNrmSubset + tmp
   }
   return(pedNrmSubset)
 }
