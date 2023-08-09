@@ -1205,32 +1205,51 @@ if (scenarios) {
       # Sampling the damsOfDams and binding them with the wtRams1
       damsOfDamsData <- baseData %>% filter(Pop %in% c("damsOfDamsLact1","damsOfDamsLact2","damsOfDamsLact3","damsOfDamsLact4"))
       damsMateWtRams <- damsOfDamsData[sample(nrow(damsOfDamsData), size=nLambsFromAIForPT),] # to sample ndams = nLambsFromAIForPT to mate with the 150 wtRams1
-      baseData9180 <- baseData %>% filter(Pop == "wtRams1") %>% rows_insert(damsMateWtRams)
+      baseData9330 <- baseData %>% filter(Pop == "wtRams1") %>% rows_insert(damsMateWtRams)
 
       # creating generations 
-      baseData9180$Born <- 0
-      baseData9180$Born[baseData9180$YearOfBirth >= 1980 & baseData9180$YearOfBirth < 1984] = 1 
-      baseData9180$Born[baseData9180$YearOfBirth >= 1984 & baseData9180$YearOfBirth < 1988] = 2
-      baseData9180$Born[baseData9180$YearOfBirth >= 1988 & baseData9180$YearOfBirth < 1992] = 3
-      baseData9180$Born[baseData9180$YearOfBirth >= 1992 & baseData9180$YearOfBirth < 1996] = 4
-      baseData9180$Born[baseData9180$YearOfBirth >= 1996 & baseData9180$YearOfBirth < 2000] = 5
-      baseData9180$Born[baseData9180$YearOfBirth >= 2000 & baseData9180$YearOfBirth < 2004] = 6
-      baseData9180$Born[baseData9180$YearOfBirth >= 2008 & baseData9180$YearOfBirth < 2012] = 7
+      baseData9330$Born <- 0
+      baseData9330$Born[baseData9330$YearOfBirth >= 1980 & baseData9330$YearOfBirth < 1984] = 1 
+      baseData9330$Born[baseData9330$YearOfBirth >= 1984 & baseData9330$YearOfBirth < 1988] = 2
+      baseData9330$Born[baseData9330$YearOfBirth >= 1988 & baseData9330$YearOfBirth < 1992] = 3
+      baseData9330$Born[baseData9330$YearOfBirth >= 1992 & baseData9330$YearOfBirth < 1996] = 4
+      baseData9330$Born[baseData9330$YearOfBirth >= 1996 & baseData9330$YearOfBirth < 2000] = 5
+      baseData9330$Born[baseData9330$YearOfBirth >= 2000 & baseData9330$YearOfBirth < 2004] = 6
+      baseData9330$Born[baseData9330$YearOfBirth >= 2008 & baseData9330$YearOfBirth < 2012] = 7
       # defining the percentage which each age class represents in the population. 
-      cont <- agecont(Pedig = Pedig, baseData9180$Indiv, maxAge=NA)
+      cont <- agecont(Pedig = Pedig, baseData9330$Indiv, maxAge=NA)
+      cont
+      # age       male     female
+      # 1   1 0.26924017 0.32788089
+      # 2   2 0.14594994 0.15640295
+      # 3   3 0.05548953 0.04503651
+      # 4   4 0.00000000 0.00000000
+      # Why the percentage is different between cont and the real percentage of each sex in each year
+      # perc <- baseData9330 %>% group_by(YearOfBirth, Sex) %>% summarize(percentage=n()/9330) 
+      # # `summarise()` has grouped output by 'YearOfBirth'. You can override using the `.groups` argument.
+      # perc
+      # ## A tibble: 5 × 3
+      # ## Groups:   YearOfBirth [4]
+      # ## YearOfBirth Sex    percentage
+      # # <dbl> <chr>       <dbl>
+      # # 1        1986 female     0.175 
+      # # 2        1987 female     0.232 
+      # # 3        1988 female     0.279 
+      # # 4        1989 female     0.299 
+      # # 5        1989 male       0.0161
       # matrix containing the pedigree based kinship with the selected individuals 
-      pKin9180 = pedIBD(Pedig, keep.only = baseData9180$Indiv)
+      pKin9330 = pedIBD(Pedig, keep.only = baseData9330$Indiv)
       # to describe the selection candidates, which are the selected individuals and the kinships.
-      cand <- candes(phen = baseData9180, pKin = pKin9180, cont=cont)
+      cand <- candes(phen = baseData9330, pKin = pKin9330, cont=cont)
       cand$mean
       #    YearOfBirth      EBV     Year        pKin
       # 1    1587.689   48.17642  1589.135    0.00202017
       # TODO If I do manually the calculation of the mean here's what I got why they are different from the cand$mean
-      mean(baseData9180$YearOfBirth)
+      mean(baseData9330$YearOfBirth)
       # [1] 1987.734
-      mean(baseData9180$EBV)
+      mean(baseData9330$EBV)
       # [1] 47.98131
-      mean(baseData9180$Year)
+      mean(baseData9330$Year)
       # [1] 1990
       
       # list containing the constraints, females will have equal contributions
@@ -1239,7 +1258,7 @@ if (scenarios) {
       genInt = 4
       con <- list(
         uniform = "female",
-        ub.pKin = 1-(1-cand$mean$pKin9180)*(1-1/(2*Ne))^(1/genInt)
+        ub.pKin = 1-(1-cand$mean$pKin9330)*(1-1/(2*Ne))^(1/genInt)
       )
       # optimum contributions of the selection candidates
       Offspring <- opticont("max.EBV", cand, con)
