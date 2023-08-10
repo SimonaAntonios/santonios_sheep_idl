@@ -1216,7 +1216,10 @@ if (scenarios) {
       baseData9330$Born[baseData9330$YearOfBirth >= 1996 & baseData9330$YearOfBirth < 2000] = 5
       baseData9330$Born[baseData9330$YearOfBirth >= 2000 & baseData9330$YearOfBirth < 2004] = 6
       baseData9330$Born[baseData9330$YearOfBirth >= 2008 & baseData9330$YearOfBirth < 2012] = 7
-      # defining the percentage which each age class represents in the population. 
+      # defining the contributions of age cohorts to the population 
+      # Contributions of age classes to the population are calculated such that the contribution of each age class to the population is proportional 
+      # to the expected proportion of offspring that is not yet born.
+      # Note that the contribution of a class to the population is not equal to the proportion of individuals belonging to the class.
       cont <- agecont(Pedig = Pedig, baseData9330$Indiv, maxAge=NA)
       cont
       # age       male     female
@@ -1224,19 +1227,7 @@ if (scenarios) {
       # 2   2 0.14594994 0.15640295
       # 3   3 0.05548953 0.04503651
       # 4   4 0.00000000 0.00000000
-      # Why the percentage is different between cont and the real percentage of each sex in each year
-      # perc <- baseData9330 %>% group_by(YearOfBirth, Sex) %>% summarize(percentage=n()/9330) 
-      # # `summarise()` has grouped output by 'YearOfBirth'. You can override using the `.groups` argument.
-      # perc
-      # ## A tibble: 5 × 3
-      # ## Groups:   YearOfBirth [4]
-      # ## YearOfBirth Sex    percentage
-      # # <dbl> <chr>       <dbl>
-      # # 1        1986 female     0.175 
-      # # 2        1987 female     0.232 
-      # # 3        1988 female     0.279 
-      # # 4        1989 female     0.299 
-      # # 5        1989 male       0.0161
+    
       # matrix containing the pedigree based kinship with the selected individuals 
       pKin9330 = pedIBD(Pedig, keep.only = baseData9330$Indiv)
       # to describe the selection candidates, which are the selected individuals and the kinships.
