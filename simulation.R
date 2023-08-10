@@ -808,9 +808,6 @@ if (burnin) {
                                   use = use)
     }
     
-    # Don't create AISiresOfSires here! Because we require old set of AISiresOfSires in
-    #   the next steps. We will create this combined population after that;)
-    
     # ---- ... AI Sire Of Dams ----
     
     cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
