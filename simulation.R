@@ -106,6 +106,7 @@ library(data.table) # for fast data operations (reading, writing, ...)
 library(pedigreemm) # for pedigree numerator relationship inverse matrix
 library(AlphaSimR)  # for stochastic simulation of a breeding programme
 library(pedigreeTools) # for new getPedNrmSubset function
+library(optiSel) # for Optimal Contribution Selection strategy
 
 if (interactive()) {
   # Simona's folder
@@ -221,10 +222,10 @@ if (FALSE) {
 }
 
 # Trait parameters:
-meanLact1           = 209                                                          # mean of milk yield in lactation X
-meanLact2           = 213
-meanLact3           = 207
-meanLact4           = 180
+meanLact1           = 209                                                          # mean of milk yield in lactation 1
+meanLact2           = 213                                                          # mean of milk yield in lactation 2
+meanLact3           = 207                                                          # mean of milk yield in lactation 3
+meanLact4           = 180                                                          # mean of milk yield in lactation 4
 meanLact = c(meanLact1, meanLact2, meanLact3, meanLact4)
 nTmp1 = c(nDamsOfDamsLact1, nDamsOfDamsLact2, nDamsOfDamsLact3, nDamsOfDamsLact4)
 nTmp2 = c(nDamsOfSiresLact1, nDamsOfSiresLact2, nDamsOfSiresLact3, nDamsOfSiresLact4)
@@ -1183,47 +1184,55 @@ if (scenarios) {
       
       # ---- testing to construct data with 150 wtRams2 and the 9180 damsOfDams that will mate them (nLambsFromAIForPT = 9180)  ----
       # TODO in this part the females that I need to select are the females that will be mated to the wtRams1, so I should sample from the damsOfDams n = nLambsFromAIForPT (number of lambs from matings with wtRams1)
-      # because the wtRams1 mate only with the damsOfDams
+      # because the wtRams1 mate only with the damsOfDams. 
+      #  TODO So my question here is should i do the OCS on wtRams1 or wtRams2? because later on I'll select the AISiresOfSires1 from the wtRams2 based on their OC
       
       # Prepare a pedigree
       databaseGeneral <- data.frame(database$General)
       databaseEbv <- data.frame(database$Ebv)  # extract the EBV for each individual
       baseData <- cbind(databaseGeneral, databaseEbv) # bind both data
       baseData <- select(baseData, c("IId", "FId", "MId", "Sex", "YearOfBirth", "EBV", "Year", "Pop")) %>%
-        filter(Pop != "AISiresOfSires" , Pop != "AISiresOfDams") # selecting the coluns and removing the "AISiresOfSires" and "AISiresOfDams" to avoid the dupicated animals
+        filter(Pop != "AISiresOfSires" , Pop != "AISiresOfDams") # selecting the columns and removing the "AISiresOfSires" and "AISiresOfDams" to avoid the dupicated animals
       baseData <- baseData %>%
-        filter(Year == (yearFull)) # selecting the last year to have the last information only for each animal
-      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "YearOfBirth", "EBV", "Year", "Pop")  # Renaming columns in a way that works for optiSel functions
+        filter(Year == (yearFull - 1)) # selecting the last year to have the last information only for each animal
+      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "Born", "EBV", "Year", "Pop")  # Renaming columns in a way that works for optiSel functions
       # changing the Sex from "F" and "M" to "females" and "males" for the agecont function 
       baseData$Sex <- ifelse(baseData$Sex == "M", "male", "female")  # Renaming sex variable
       
       Pedig = prePed(baseData) # Preparing the pedigree
-      # Sampling the damsOfDams and binding them with the wtRams1
+      # Sampling the damsOfDams and binding them with the wtRams2
       damsOfDamsData <- baseData %>% filter(Pop %in% c("damsOfDamsLact1","damsOfDamsLact2","damsOfDamsLact3","damsOfDamsLact4"))
       damsMateWtRams <- damsOfDamsData[sample(nrow(damsOfDamsData), size=nLambsFromAIForPT),] # to sample ndams = nLambsFromAIForPT to mate with the 150 wtRams1
-      baseData9330 <- baseData %>% filter(Pop == "wtRams1") %>% rows_insert(damsMateWtRams)
+      baseData9330 <- baseData %>% filter(Pop == "wtRams2") %>% rows_insert(damsMateWtRams)
       
-      # creating generations 
-      baseData9330$Born <- 0
-      baseData9330$Born[baseData9330$YearOfBirth >= 1980 & baseData9330$YearOfBirth < 1984] = 1 
-      baseData9330$Born[baseData9330$YearOfBirth >= 1984 & baseData9330$YearOfBirth < 1988] = 2
-      baseData9330$Born[baseData9330$YearOfBirth >= 1988 & baseData9330$YearOfBirth < 1992] = 3
-      baseData9330$Born[baseData9330$YearOfBirth >= 1992 & baseData9330$YearOfBirth < 1996] = 4
-      baseData9330$Born[baseData9330$YearOfBirth >= 1996 & baseData9330$YearOfBirth < 2000] = 5
-      baseData9330$Born[baseData9330$YearOfBirth >= 2000 & baseData9330$YearOfBirth < 2004] = 6
-      baseData9330$Born[baseData9330$YearOfBirth >= 2008 & baseData9330$YearOfBirth < 2012] = 7
+      # # creating generations 
+      # baseData9330$Born <- 0
+      # baseData9330$Born[baseData9330$YearOfBirth >= 1980 & baseData9330$YearOfBirth < 1984] = 1 
+      # baseData9330$Born[baseData9330$YearOfBirth >= 1984 & baseData9330$YearOfBirth < 1988] = 2
+      # baseData9330$Born[baseData9330$YearOfBirth >= 1988 & baseData9330$YearOfBirth < 1992] = 3
+      # baseData9330$Born[baseData9330$YearOfBirth >= 1992 & baseData9330$YearOfBirth < 1996] = 4
+      # baseData9330$Born[baseData9330$YearOfBirth >= 1996 & baseData9330$YearOfBirth < 2000] = 5
+      # baseData9330$Born[baseData9330$YearOfBirth >= 2000 & baseData9330$YearOfBirth < 2004] = 6
+      # baseData9330$Born[baseData9330$YearOfBirth >= 2008 & baseData9330$YearOfBirth < 2012] = 7
+      
       # defining the contributions of age cohorts to the population 
       # Contributions of age classes to the population are calculated such that the contribution of each age class to the population is proportional 
       # to the expected proportion of offspring that is not yet born.
       # Note that the contribution of a class to the population is not equal to the proportion of individuals belonging to the class.
       cont <- agecont(Pedig = Pedig, baseData9330$Indiv, maxAge=NA)
       cont
+      #  this one obtained with the generations
       # age       male     female
       # 1   1 0.26924017 0.32788089
       # 2   2 0.14594994 0.15640295
       # 3   3 0.05548953 0.04503651
       # 4   4 0.00000000 0.00000000
-      
+      #  this one obtained with the year of birth
+      # 1   1 0.18697836 0.36664038
+      # 2   2 0.09561931 0.17142717
+      # 3   3 0.09561931 0.05176346
+      # 4   4 0.03195200 0.00000000
+      # 5   5 0.00000000 0.00000000
       # matrix containing the pedigree based kinship with the selected individuals 
       pKin9330 = pedIBD(Pedig, keep.only = baseData9330$Indiv)
       # to describe the selection candidates, which are the selected individuals and the kinships.
@@ -1232,10 +1241,10 @@ if (scenarios) {
       #    YearOfBirth      EBV     Year        pKin
       # 1    1587.689   48.17642  1589.135    0.00202017
       # TODO If I do manually the calculation of the mean here's what I got why they are different from the cand$mean
-      mean(baseData9330$YearOfBirth)
+      mean(baseData9330$Born)
       # [1] 1987.734
       mean(baseData9330$EBV)
-      # [1] 47.98131
+      # [1] 46.65091
       mean(baseData9330$Year)
       # [1] 1990
       
@@ -1245,11 +1254,15 @@ if (scenarios) {
       genInt = 4
       con <- list(
         uniform = "female",
-        ub.pKin = 1-(1-cand$mean$pKin9330)*(1-1/(2*Ne))^(1/genInt)
+        ub.pKin = 1-(1-cand$mean$pKin)*(1-1/(2*Ne))^(1/genInt)
       )
       # optimum contributions of the selection candidates
       Offspring <- opticont("max.EBV", cand, con)
       futureParents <- Offspring$parent
+      #  here selecting the best 10 animals to be selected later on as an AISiresOfSires1
+      AICandidates <- futureParents %>%
+        arrange(desc(oc)) %>%
+        slice(1:10)
       numberMate = noffspring(futureParents, N = 9180)
       
       # ---- testing to construct data with 150 wtRams2 and the 2 females groups ----
@@ -1312,10 +1325,20 @@ if (scenarios) {
       AISiresOfSires1 = selectInd(pop = wtRams2, nInd = nAISiresOfSires1, # AISiresOfSires1 are 3.5 years old here
                                   use = use)
     } else {
-      AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
-                                        use = use, famType = "M")
-      AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
-                                  use = use)
+      # TODO add if statement for scenarios
+      # TODO select AISiresOfSires1 based on OCS
+      # TODO is it done in the correct way?  
+      
+      if (scenario %in% c("stdOCS", "idlOCS")) {
+        selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
+        AISiresOfSires1 = selectInd(pop = wtRams2[selAICandidates])
+      }
+      else if (scenario %in% c("std", "idl")) {      
+        AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
+                                          use = use, famType = "M")
+        AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
+                                    use = use)
+      }
     }
     
     # ---- ... AI Sire Of Dams ----
@@ -1419,7 +1442,7 @@ if (scenarios) {
     # ---- Generate lambs ----
     
     cat("Generate lambs", as.character(Sys.time()), "\n")
-    
+    # TODO add prob argument to sample for OCS scenario with optimize contributions, BUT we need optimal contributions for AISiresOfSires1 and AISiresOfSires2 which we don't have at the moment
     matingPlan1 = cbind(damsOfSires@id,
                         sample(AISiresOfSires@id, size = nDamsOfSires, replace = TRUE))
     
