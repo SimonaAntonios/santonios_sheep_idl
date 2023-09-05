@@ -1321,25 +1321,16 @@ if (scenarios) {
     AISiresOfSires3 = AISiresOfSires2 # AISiresOfSires3 are 4.5 years old here
     AISiresOfSires2 = AISiresOfSires1 # AISiresOfSires2 are 3.5 years old here
     
-    if (all(wtRams2@father == "0")) {
-      AISiresOfSires1 = selectInd(pop = wtRams2, nInd = nAISiresOfSires1, # AISiresOfSires1 are 3.5 years old here
-                                  use = use)
-    } else {
-      # TODO add if statement for scenarios
-      # TODO select AISiresOfSires1 based on OCS
-      # TODO is it done in the correct way?  
-      
-      if (scenario %in% c("stdOCS", "idlOCS")) {
+    if (scenario %in% c("stdOCS", "idlOCS")) {
         selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
-        AISiresOfSires1 = selectInd(pop = wtRams2[selAICandidates])
+        AISiresOfSires1 = wtRams2[selAICandidates]
       }
-      else if (scenario %in% c("std", "idl")) {      
+    else if (scenario %in% c("std", "idl")) {      
         AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
                                           use = use, famType = "M")
         AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
                                     use = use)
       }
-    }
     
     # ---- ... AI Sire Of Dams ----
     
