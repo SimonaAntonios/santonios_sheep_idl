@@ -1202,6 +1202,17 @@ if (scenarios) {
       # changing the Sex from "F" and "M" to "females" and "males" for the agecont function 
       baseData$Sex <- ifelse(baseData$Sex == "M", "male", "female")  # Renaming sex variable
       
+      # real generation interval the optiSel didn't work 
+      # baseData$Born <- 0
+      # baseData$Born[baseData$YearOfBirth >= 1980 & baseData$YearOfBirth < 1984] = 1
+      # baseData$Born[baseData$YearOfBirth >= 1984 & baseData$YearOfBirth < 1988] = 2
+      # baseData$Born[baseData$YearOfBirth >= 1988 & baseData$YearOfBirth < 1992] = 3
+      # baseData$Born[baseData$YearOfBirth >= 1992 & baseData$YearOfBirth < 1996] = 4
+      # baseData$Born[baseData$YearOfBirth >= 1996 & baseData$YearOfBirth < 2000] = 5
+      # baseData$Born[baseData$YearOfBirth >= 2000 & baseData$YearOfBirth < 2004] = 6
+      # baseData$Born[baseData$YearOfBirth >= 2004 & baseData$YearOfBirth < 2008] = 7
+      # baseData$Born[baseData$YearOfBirth >= 2008 & baseData$YearOfBirth < 2012] = 8
+      
       # Creating generations, since here we are working by year, I am considering each year a generation, because by putting the real generation interval the optiSel didn't work 
       # baseData$Born <- 0
       # baseData$Born[baseData$YearOfBirth >= 1986 ] = 1
@@ -1219,7 +1230,8 @@ if (scenarios) {
       # baseData$Born[baseData$YearOfBirth >= 1998 ] = 13
       # baseData$Born[baseData$YearOfBirth >= 1999 ] = 14
       # baseData$Born[baseData$YearOfBirth >= 2000 ] = 15
-      
+     
+       # Creating generations, since here we are working by year, I am considering each 2 year a generation, because by putting the real or one year generation interval the optiSel didn't work 
       baseData$Born <- 0
       baseData$Born[baseData$YearOfBirth >= 1986 & baseData$YearOfBirth < 1988] = 1
       baseData$Born[baseData$YearOfBirth >= 1988 & baseData$YearOfBirth < 1990] = 2
@@ -1229,17 +1241,6 @@ if (scenarios) {
       baseData$Born[baseData$YearOfBirth >= 1996 & baseData$YearOfBirth < 1998] = 6
       baseData$Born[baseData$YearOfBirth >= 1998 & baseData$YearOfBirth < 2000] = 7
       
-      
-      # real generation interval the optiSel didn't work 
-      # baseData$Born <- 0
-      # baseData$Born[baseData$YearOfBirth >= 1980 & baseData$YearOfBirth < 1984] = 1
-      # baseData$Born[baseData$YearOfBirth >= 1984 & baseData$YearOfBirth < 1988] = 2
-      # baseData$Born[baseData$YearOfBirth >= 1988 & baseData$YearOfBirth < 1992] = 3
-      # baseData$Born[baseData$YearOfBirth >= 1992 & baseData$YearOfBirth < 1996] = 4
-      # baseData$Born[baseData$YearOfBirth >= 1996 & baseData$YearOfBirth < 2000] = 5
-      # baseData$Born[baseData$YearOfBirth >= 2000 & baseData$YearOfBirth < 2004] = 6
-      # baseData$Born[baseData$YearOfBirth >= 2004 & baseData$YearOfBirth < 2008] = 7
-      # baseData$Born[baseData$YearOfBirth >= 2008 & baseData$YearOfBirth < 2012] = 8
       Pedig = prePed(baseData) # Preparing the pedigree
       
       # Sampling the damsOfDams and binding them with the wtRams2
@@ -1367,6 +1368,7 @@ if (scenarios) {
     # TODO is it done in the correct way?  
     
     if (scenario %in% c("stdOCS", "idlOCS")) {
+<<<<<<< HEAD
       selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
       AISiresOfSires1 = wtRams2[selAICandidates]
     }
@@ -1376,6 +1378,17 @@ if (scenarios) {
       AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
                                   use = use)
     }
+=======
+        selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
+        AISiresOfSires1 = wtRams2[selAICandidates]
+      }
+    else if (scenario %in% c("std", "idl")) {      
+        AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
+                                          use = use, famType = "M")
+        AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
+                                    use = use)
+      }
+>>>>>>> ccc93ee7196297fefbf109c7f45df323822c6f03
     
     # ---- ... AI Sire Of Dams ----
     
