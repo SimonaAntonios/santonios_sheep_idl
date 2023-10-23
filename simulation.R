@@ -261,8 +261,8 @@ if (FALSE) {
   domVar / phenVar # ~0.033
 }
 
-nBurninYears        = 20                                                           # no. of years for burnin
-nScenarioYears      = 20                                                           # no. of years for scenarios
+nBurninYears        = 10                                                           # no. of years for burnin
+nScenarioYears      = 10                                                           # no. of years for scenarios
 
 # ---- Working directory -------------------------------------------------------
 
@@ -1039,6 +1039,9 @@ if (scenarios) {
     damsOfDamsLact1 = setPhenoEwe(damsOfDamsLact1, varE = resVar,
                                   mean = meanLact1, yearEffect = yearEffect, herds = herds)
     
+    damsOfSires = c(damsOfSiresLact4, damsOfSiresLact3, damsOfSiresLact2, damsOfSiresLact1)
+    damsOfDams = c(damsOfDamsLact4, damsOfDamsLact3, damsOfDamsLact2, damsOfDamsLact1)
+    
     database = setDatabasePheno(database, pop = damsOfSiresLact4)
     database = setDatabasePheno(database, pop = damsOfSiresLact3)
     database = setDatabasePheno(database, pop = damsOfSiresLact2)
@@ -1195,25 +1198,54 @@ if (scenarios) {
         filter(Pop != "AISiresOfSires" , Pop != "AISiresOfDams") # selecting the columns and removing the "AISiresOfSires" and "AISiresOfDams" to avoid the dupicated animals
       baseData <- baseData %>%
         filter(Year == (yearFull - 1)) # selecting the last year to have the last information only for each animal
-      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "Born", "EBV", "Year", "Pop")  # Renaming columns in a way that works for optiSel functions
+      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "YearOfBirth", "EBV", "Year", "Pop")  # Renaming columns in a way that works for optiSel functions
       # changing the Sex from "F" and "M" to "females" and "males" for the agecont function 
       baseData$Sex <- ifelse(baseData$Sex == "M", "male", "female")  # Renaming sex variable
       
+      # Creating generations, since here we are working by year, I am considering each year a generation, because by putting the real generation interval the optiSel didn't work 
+      # baseData$Born <- 0
+      # baseData$Born[baseData$YearOfBirth >= 1986 ] = 1
+      # baseData$Born[baseData$YearOfBirth >= 1987 ] = 2
+      # baseData$Born[baseData$YearOfBirth >= 1988 ] = 3
+      # baseData$Born[baseData$YearOfBirth >= 1989 ] = 4
+      # baseData$Born[baseData$YearOfBirth >= 1990 ] = 5
+      # baseData$Born[baseData$YearOfBirth >= 1991 ] = 6
+      # baseData$Born[baseData$YearOfBirth >= 1992 ] = 7
+      # baseData$Born[baseData$YearOfBirth >= 1993 ] = 8
+      # baseData$Born[baseData$YearOfBirth >= 1994 ] = 9
+      # baseData$Born[baseData$YearOfBirth >= 1995 ] = 10
+      # baseData$Born[baseData$YearOfBirth >= 1996 ] = 11
+      # baseData$Born[baseData$YearOfBirth >= 1997 ] = 12
+      # baseData$Born[baseData$YearOfBirth >= 1998 ] = 13
+      # baseData$Born[baseData$YearOfBirth >= 1999 ] = 14
+      # baseData$Born[baseData$YearOfBirth >= 2000 ] = 15
+      
+      baseData$Born <- 0
+      baseData$Born[baseData$YearOfBirth >= 1986 & baseData$YearOfBirth < 1988] = 1
+      baseData$Born[baseData$YearOfBirth >= 1988 & baseData$YearOfBirth < 1990] = 2
+      baseData$Born[baseData$YearOfBirth >= 1990 & baseData$YearOfBirth < 1992] = 3
+      baseData$Born[baseData$YearOfBirth >= 1992 & baseData$YearOfBirth < 1994] = 4
+      baseData$Born[baseData$YearOfBirth >= 1994 & baseData$YearOfBirth < 1996] = 5
+      baseData$Born[baseData$YearOfBirth >= 1996 & baseData$YearOfBirth < 1998] = 6
+      baseData$Born[baseData$YearOfBirth >= 1998 & baseData$YearOfBirth < 2000] = 7
+      
+      
+      # real generation interval the optiSel didn't work 
+      # baseData$Born <- 0
+      # baseData$Born[baseData$YearOfBirth >= 1980 & baseData$YearOfBirth < 1984] = 1
+      # baseData$Born[baseData$YearOfBirth >= 1984 & baseData$YearOfBirth < 1988] = 2
+      # baseData$Born[baseData$YearOfBirth >= 1988 & baseData$YearOfBirth < 1992] = 3
+      # baseData$Born[baseData$YearOfBirth >= 1992 & baseData$YearOfBirth < 1996] = 4
+      # baseData$Born[baseData$YearOfBirth >= 1996 & baseData$YearOfBirth < 2000] = 5
+      # baseData$Born[baseData$YearOfBirth >= 2000 & baseData$YearOfBirth < 2004] = 6
+      # baseData$Born[baseData$YearOfBirth >= 2004 & baseData$YearOfBirth < 2008] = 7
+      # baseData$Born[baseData$YearOfBirth >= 2008 & baseData$YearOfBirth < 2012] = 8
       Pedig = prePed(baseData) # Preparing the pedigree
+      
       # Sampling the damsOfDams and binding them with the wtRams2
       damsOfDamsData <- baseData %>% filter(Pop %in% c("damsOfDamsLact1","damsOfDamsLact2","damsOfDamsLact3","damsOfDamsLact4"))
       damsMateWtRams <- damsOfDamsData[sample(nrow(damsOfDamsData), size=nLambsFromAIForPT),] # to sample ndams = nLambsFromAIForPT to mate with the 150 wtRams1
       baseData9330 <- baseData %>% filter(Pop == "wtRams2") %>% rows_insert(damsMateWtRams)
-      
-      # # creating generations 
-      # baseData9330$Born <- 0
-      # baseData9330$Born[baseData9330$YearOfBirth >= 1980 & baseData9330$YearOfBirth < 1984] = 1 
-      # baseData9330$Born[baseData9330$YearOfBirth >= 1984 & baseData9330$YearOfBirth < 1988] = 2
-      # baseData9330$Born[baseData9330$YearOfBirth >= 1988 & baseData9330$YearOfBirth < 1992] = 3
-      # baseData9330$Born[baseData9330$YearOfBirth >= 1992 & baseData9330$YearOfBirth < 1996] = 4
-      # baseData9330$Born[baseData9330$YearOfBirth >= 1996 & baseData9330$YearOfBirth < 2000] = 5
-      # baseData9330$Born[baseData9330$YearOfBirth >= 2000 & baseData9330$YearOfBirth < 2004] = 6
-      # baseData9330$Born[baseData9330$YearOfBirth >= 2008 & baseData9330$YearOfBirth < 2012] = 7
       
       # defining the contributions of age cohorts to the population 
       # Contributions of age classes to the population are calculated such that the contribution of each age class to the population is proportional 
@@ -1221,32 +1253,41 @@ if (scenarios) {
       # Note that the contribution of a class to the population is not equal to the proportion of individuals belonging to the class.
       cont <- agecont(Pedig = Pedig, baseData9330$Indiv, maxAge=NA)
       cont
-      #  this one obtained with the generations
+      #  this one obtained with the Real generations
       # age       male     female
-      # 1   1 0.26924017 0.32788089
-      # 2   2 0.14594994 0.15640295
-      # 3   3 0.05548953 0.04503651
-      # 4   4 0.00000000 0.00000000
-      #  this one obtained with the year of birth
+      # 1   1  NaN    NaN
+      # 2   2  NaN    NaN
+      
+      # this one obtained with the 2 year generations
+      # age male female
+      # 1   1    0      1
+      # 2   2    0      0
+      # 3   3    0      0
+      
+      #  this one obtained with the year of birth same results for one year generation 
       # 1   1 0.18697836 0.36664038
       # 2   2 0.09561931 0.17142717
       # 3   3 0.09561931 0.05176346
       # 4   4 0.03195200 0.00000000
       # 5   5 0.00000000 0.00000000
+      
       # matrix containing the pedigree based kinship with the selected individuals 
       pKin9330 = pedIBD(Pedig, keep.only = baseData9330$Indiv)
       # to describe the selection candidates, which are the selected individuals and the kinships.
       cand <- candes(phen = baseData9330, pKin = pKin9330, cont=cont)
+      # the error we obtained by using the year of birth or the one year generation was as follow 
+      # The population is evaluated at time 4
+      # Number of individuals in age class 1:
+      #   
+      #   female
+      # missing   2765
+      # the error we obtained by using the year of birth or the 4 year grouped as one generation was as follow 
+      # Error in checkcont(cont) : 
+      #   Column 'male' of argument 'cont' contains NA values.
+      # TODO: I grouped the individuals, ech two year of birth in one generation and it worked like this, do you think it is a good way to do it?
       cand$mean
-      #    YearOfBirth      EBV     Year        pKin
-      # 1    1587.689   48.17642  1589.135    0.00202017
-      # TODO If I do manually the calculation of the mean here's what I got why they are different from the cand$mean
-      mean(baseData9330$Born)
-      # [1] 1987.734
-      mean(baseData9330$EBV)
-      # [1] 46.65091
-      mean(baseData9330$Year)
-      # [1] 1990
+      # YearOfBirth      EBV Year         pKin
+      # 1    1988.509 57.79051 1990 0.0007518762
       
       # list containing the constraints, females will have equal contributions
       # here i defined the genInt = 4 and the Ne = BaseNe
@@ -1265,50 +1306,51 @@ if (scenarios) {
         slice(1:10)
       numberMate = noffspring(futureParents, N = 9180)
       
-      # ---- testing to construct data with 150 wtRams2 and the 2 females groups ----
-      # Creating the females data
-      femalesGroup <- data.frame(Indiv = as.character(c("females1", "females2")),
-                                 Sire = NA,
-                                 Dam = NA,
-                                 Sex = as.character("female"),
-                                 YearOfBirth = NA,
-                                 EBV = NA,
-                                 Year = NA,
-                                 Pop = as.character(c("damsOfSires", "damsOfDams")),
-                                 row.names = c("damsOfSires", "damsOfDams"))
-      # preparing the data for 152 animals/groups
-      baseData152 <- baseData %>% filter(Pop == "wtRams2") %>% rows_insert(femalesGroup)
-      # creating generations 
-      baseData152$Born <- NA
-      baseData152$Born[baseData152$YearOfBirth >= 1980 & baseData152$YearOfBirth < 1984] = 1 
-      baseData152$Born[baseData152$YearOfBirth >= 1984 & baseData152$YearOfBirth < 1988] = 2
-      baseData152$Born[baseData152$YearOfBirth >= 1988 & baseData152$YearOfBirth < 1992] = 3
-      baseData152$Born[baseData152$YearOfBirth >= 1992 & baseData152$YearOfBirth < 1996] = 4
-      baseData152$Born[baseData152$YearOfBirth >= 1996 & baseData152$YearOfBirth < 2000] = 5
-      baseData152$Born[baseData152$YearOfBirth >= 2000 & baseData152$YearOfBirth < 2004] = 6
-      baseData152$Born[baseData152$YearOfBirth >= 2008 & baseData152$YearOfBirth < 2012] = 7
-      
-      pKin152 = as.matrix(0.5*A22Collapsed, cont=NULL)
-      
-      cand152 <- candes(phen = baseData152, pKin = pKin152, cont=NULL)
-      # There are NA-values in column 'Born'. These individuals can be 
-      # selection candidates but are ignored for computing population means.
-      # The population is evaluated at time 3
-      # Number of individuals in age class 1:
-      #   
-      #   male
-      # missing  150
-      # Error in characterizeClasses(cont, breed, phen) : 
-      #   There is no missing from a youngest age class in the data set.
-      
-      con152 <- list(
-        uniform = "female",
-        ub.pKin = 1-(1-cand$mean$pKin)*(1-1/(2*Ne))^(1/genInt)
-      )
-      Offspring152 <- opticont("max.EBV", cand, con)
-      futureParents152 <- Offspring$parent
-      numberMate152 = noffspring(futureParents, N = 9180)
-      
+      # those two parts are for later
+      # # ---- testing to construct data with 150 wtRams2 and the 2 females groups ----
+      # # Creating the females data
+      # femalesGroup <- data.frame(Indiv = as.character(c("females1", "females2")),
+      #                            Sire = NA,
+      #                            Dam = NA,
+      #                            Sex = as.character("female"),
+      #                            YearOfBirth = NA,
+      #                            EBV = NA,
+      #                            Year = NA,
+      #                            Pop = as.character(c("damsOfSires", "damsOfDams")),
+      #                            row.names = c("damsOfSires", "damsOfDams"))
+      # # preparing the data for 152 animals/groups
+      # baseData152 <- baseData %>% filter(Pop == "wtRams2") %>% rows_insert(femalesGroup)
+      # # creating generations 
+      # baseData152$Born <- NA
+      # baseData152$Born[baseData152$YearOfBirth >= 1980 & baseData152$YearOfBirth < 1984] = 1 
+      # baseData152$Born[baseData152$YearOfBirth >= 1984 & baseData152$YearOfBirth < 1988] = 2
+      # baseData152$Born[baseData152$YearOfBirth >= 1988 & baseData152$YearOfBirth < 1992] = 3
+      # baseData152$Born[baseData152$YearOfBirth >= 1992 & baseData152$YearOfBirth < 1996] = 4
+      # baseData152$Born[baseData152$YearOfBirth >= 1996 & baseData152$YearOfBirth < 2000] = 5
+      # baseData152$Born[baseData152$YearOfBirth >= 2000 & baseData152$YearOfBirth < 2004] = 6
+      # baseData152$Born[baseData152$YearOfBirth >= 2008 & baseData152$YearOfBirth < 2012] = 7
+      # 
+      # pKin152 = as.matrix(0.5*A22Collapsed, cont=NULL)
+      # 
+      # cand152 <- candes(phen = baseData152, pKin = pKin152, cont=NULL)
+      # # There are NA-values in column 'Born'. These individuals can be 
+      # # selection candidates but are ignored for computing population means.
+      # # The population is evaluated at time 3
+      # # Number of individuals in age class 1:
+      # #   
+      # #   male
+      # # missing  150
+      # # Error in characterizeClasses(cont, breed, phen) : 
+      # #   There is no missing from a youngest age class in the data set.
+      # 
+      # con152 <- list(
+      #   uniform = "female",
+      #   ub.pKin = 1-(1-cand$mean$pKin)*(1-1/(2*Ne))^(1/genInt)
+      # )
+      # Offspring152 <- opticont("max.EBV", cand, con)
+      # futureParents152 <- Offspring$parent
+      # numberMate152 = noffspring(futureParents, N = 9180)
+      # 
       stop("WORK IN PROGRESS: OCS Not completed!")
     }
     
@@ -1320,25 +1362,19 @@ if (scenarios) {
     
     AISiresOfSires3 = AISiresOfSires2 # AISiresOfSires3 are 4.5 years old here
     AISiresOfSires2 = AISiresOfSires1 # AISiresOfSires2 are 3.5 years old here
+
+    # TODO select AISiresOfSires1 based on OCS
+    # TODO is it done in the correct way?  
     
-    if (all(wtRams2@father == "0")) {
-      AISiresOfSires1 = selectInd(pop = wtRams2, nInd = nAISiresOfSires1, # AISiresOfSires1 are 3.5 years old here
+    if (scenario %in% c("stdOCS", "idlOCS")) {
+      selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
+      AISiresOfSires1 = wtRams2[selAICandidates]
+    }
+    else if (scenario %in% c("std", "idl")) {      
+      AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
+                                        use = use, famType = "M")
+      AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
                                   use = use)
-    } else {
-      # TODO add if statement for scenarios
-      # TODO select AISiresOfSires1 based on OCS
-      # TODO is it done in the correct way?  
-      
-      if (scenario %in% c("stdOCS", "idlOCS")) {
-        selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
-        AISiresOfSires1 = selectInd(pop = wtRams2[selAICandidates])
-      }
-      else if (scenario %in% c("std", "idl")) {      
-        AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
-                                          use = use, famType = "M")
-        AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
-                                    use = use)
-      }
     }
     
     # ---- ... AI Sire Of Dams ----
