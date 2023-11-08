@@ -1284,7 +1284,7 @@ if (scenarios) {
       # Number of individuals in age class 1:
       #   
       #   female
-      # missing   2765
+      # missing   2739
       # Error in characterizeClasses(cont, breed, phen) : 
       #   There is no missing from a youngest age class in the data set.
       
