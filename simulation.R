@@ -1198,7 +1198,7 @@ if (scenarios) {
         filter(Pop != "AISiresOfSires" , Pop != "AISiresOfDams") # selecting the columns and removing the "AISiresOfSires" and "AISiresOfDams" to avoid the dupicated animals
       baseData <- baseData %>%
         filter(Year == (yearFull - 1)) # selecting the last year to have the last information only for each animal
-      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "YearOfBirth", "EBV", "Year", "Pop")  # Renaming columns in a way that works for optiSel functions
+      colnames(baseData) <- c("Indiv", "Sire", "Dam", "Sex", "Born", "EBV", "Year", "Pop")  # Renaming columns in a way that works for optiSel functions
       # changing the Sex from "F" and "M" to "females" and "males" for the agecont function 
       baseData$Sex <- ifelse(baseData$Sex == "M", "male", "female")  # Renaming sex variable
       
@@ -1230,29 +1230,31 @@ if (scenarios) {
       # baseData$Born[baseData$YearOfBirth >= 1998 ] = 13
       # baseData$Born[baseData$YearOfBirth >= 1999 ] = 14
       # baseData$Born[baseData$YearOfBirth >= 2000 ] = 15
-     
-       # Creating generations, since here we are working by year, I am considering each 2 year a generation, because by putting the real or one year generation interval the optiSel didn't work 
-      baseData$Born <- 0
-      baseData$Born[baseData$YearOfBirth >= 1986 & baseData$YearOfBirth < 1988] = 1
-      baseData$Born[baseData$YearOfBirth >= 1988 & baseData$YearOfBirth < 1990] = 2
-      baseData$Born[baseData$YearOfBirth >= 1990 & baseData$YearOfBirth < 1992] = 3
-      baseData$Born[baseData$YearOfBirth >= 1992 & baseData$YearOfBirth < 1994] = 4
-      baseData$Born[baseData$YearOfBirth >= 1994 & baseData$YearOfBirth < 1996] = 5
-      baseData$Born[baseData$YearOfBirth >= 1996 & baseData$YearOfBirth < 1998] = 6
-      baseData$Born[baseData$YearOfBirth >= 1998 & baseData$YearOfBirth < 2000] = 7
       
-      Pedig = prePed(baseData) # Preparing the pedigree
+      # Creating generations, since here we are working by year, I am considering each 2 year a generation, because by putting the real or one year generation interval the optiSel didn't work 
+      # baseData$Born <- 0
+      # baseData$Born[baseData$YearOfBirth >= 1986 & baseData$YearOfBirth < 1988] = 1
+      # baseData$Born[baseData$YearOfBirth >= 1988 & baseData$YearOfBirth < 1990] = 2
+      # baseData$Born[baseData$YearOfBirth >= 1990 & baseData$YearOfBirth < 1992] = 3
+      # baseData$Born[baseData$YearOfBirth >= 1992 & baseData$YearOfBirth < 1994] = 4
+      # baseData$Born[baseData$YearOfBirth >= 1994 & baseData$YearOfBirth < 1996] = 5
+      # baseData$Born[baseData$YearOfBirth >= 1996 & baseData$YearOfBirth < 1998] = 6
+      # baseData$Born[baseData$YearOfBirth >= 1998 & baseData$YearOfBirth < 2000] = 7
       
+      
+      Pedig = prePed(baseData, thisBreed = "MTR") # Preparing the pedigree
       # Sampling the damsOfDams and binding them with the wtRams2
       damsOfDamsData <- baseData %>% filter(Pop %in% c("damsOfDamsLact1","damsOfDamsLact2","damsOfDamsLact3","damsOfDamsLact4"))
       damsMateWtRams <- damsOfDamsData[sample(nrow(damsOfDamsData), size=nLambsFromAIForPT),] # to sample ndams = nLambsFromAIForPT to mate with the 150 wtRams1
       baseData9330 <- baseData %>% filter(Pop == "wtRams2") %>% rows_insert(damsMateWtRams)
-      
+      use <- Pedig$Indiv %in% baseData9330$Indiv
+      Population <- Pedig$Indiv[use]
+      Phen <- Pedig[use, ]
       # defining the contributions of age cohorts to the population 
       # Contributions of age classes to the population are calculated such that the contribution of each age class to the population is proportional 
       # to the expected proportion of offspring that is not yet born.
       # Note that the contribution of a class to the population is not equal to the proportion of individuals belonging to the class.
-      cont <- agecont(Pedig = Pedig, baseData9330$Indiv, maxAge=NA)
+      cont <- agecont(Pedig = Pedig, use=use, maxAge=NA)
       cont
       #  this one obtained with the Real generations
       # age       male     female
@@ -1266,6 +1268,7 @@ if (scenarios) {
       # 3   3    0      0
       
       #  this one obtained with the year of birth same results for one year generation 
+      # age       male     female
       # 1   1 0.18697836 0.36664038
       # 2   2 0.09561931 0.17142717
       # 3   3 0.09561931 0.05176346
@@ -1273,15 +1276,18 @@ if (scenarios) {
       # 5   5 0.00000000 0.00000000
       
       # matrix containing the pedigree based kinship with the selected individuals 
-      pKin9330 = pedIBD(Pedig, keep.only = baseData9330$Indiv)
+      pKin9330 = pedIBD(Pedig, keep.only = Population)
       # to describe the selection candidates, which are the selected individuals and the kinships.
-      cand <- candes(phen = baseData9330, pKin = pKin9330, cont=cont)
+      cand <- candes(phen = Phen, pKin = pKin9330, cont=cont)
       # the error we obtained by using the year of birth or the one year generation was as follow 
       # The population is evaluated at time 4
       # Number of individuals in age class 1:
       #   
       #   female
       # missing   2765
+      # Error in characterizeClasses(cont, breed, phen) : 
+      #   There is no missing from a youngest age class in the data set.
+      
       # the error we obtained by using the year of birth or the 4 year grouped as one generation was as follow 
       # Error in checkcont(cont) : 
       #   Column 'male' of argument 'cont' contains NA values.
@@ -1363,12 +1369,11 @@ if (scenarios) {
     
     AISiresOfSires3 = AISiresOfSires2 # AISiresOfSires3 are 4.5 years old here
     AISiresOfSires2 = AISiresOfSires1 # AISiresOfSires2 are 3.5 years old here
-
+    
     # TODO select AISiresOfSires1 based on OCS
     # TODO is it done in the correct way?  
     
     if (scenario %in% c("stdOCS", "idlOCS")) {
-<<<<<<< HEAD
       selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
       AISiresOfSires1 = wtRams2[selAICandidates]
     }
@@ -1378,184 +1383,183 @@ if (scenarios) {
       AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
                                   use = use)
     }
-=======
-        selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
-        AISiresOfSires1 = wtRams2[selAICandidates]
-      }
-    else if (scenario %in% c("std", "idl")) {      
-        AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
-                                          use = use, famType = "M")
-        AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
-                                    use = use)
-      }
->>>>>>> ccc93ee7196297fefbf109c7f45df323822c6f03
     
-    # ---- ... AI Sire Of Dams ----
-    
-    cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
-    
-    AISiresOfDams3 = AISiresOfDams2 # AISiresOfDams3 are 5.5 years old here
-    AISiresOfDams2 = AISiresOfDams1 # AISiresOfDams2 are 4.5 years old here
-    
-    if (all(wtRams2@father == "0")) {
-      sel = !wtRams2@id %in% AISiresOfSires1@id
-      AISiresOfDams1 = selectInd(pop = wtRams2[sel], nInd = nAISiresOfDams1, # AISiresOfDams1 are 3.5 years old here
-                                 use = use)
-    } else {
-      sel = !wtRams2@id %in% AISiresOfSires1@id
-      AISiresOfDams1 = selectWithinFam(pop = wtRams2[sel], nInd = 2, # AISiresOfDams1 are 3.5 years old here
-                                       use = use, famType = "M")
-      AISiresOfDams1 = selectInd(pop = AISiresOfDams1, nInd = nAISiresOfDams1,
-                                 use = use)
-    }
-    cat("Select rams\n")
-    
-    # ---- ... Selecting males from lambs ----
-    # Note that we select wtRams only from lambs from AI Sire Of Sires (not waiting rams) and Dams Of Sires
-    selWtRams = lambs@father %in% AISiresOfSires@id & lambs@mother %in% damsOfSires@id
-    n = ceiling(nWtRams1 / length(AISiresOfSires@id))
-    wtRams2 = wtRams1
-    wtRams1 = selectWithinFam(pop = lambs[selWtRams], nInd = n,
-                              use = use, famType = "M", sex = "M")
-    wtRams1 = selectInd(pop = wtRams1, nInd = nWtRams1,
-                        use = use)
-    
-    selNtlRams = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
-      !lambs@id %in% wtRams1@id
-    NMSires =  selectInd(pop = lambs[selNtlRams], nInd = nNMSires,
-                         use = use, famType = "M", sex = "M")
-    
-    
-    AISiresOfSires = c(AISiresOfSires3, AISiresOfSires2, AISiresOfSires1)
-    AISiresOfDams = c(AISiresOfDams3, AISiresOfDams2, AISiresOfDams1)
-    
-    # ---- Select ewes ----
-    
-    cat("Select ewes\n")
-    
-    # ---- ... Dams Of Sires ----
-    
-    cat("... Dams Of Sires", as.character(Sys.time()), "\n")
-    
-    ewesLact4 = c(damsOfDamsLact4, damsOfSiresLact4)
-    ewesLact3 = c(damsOfDamsLact3, damsOfSiresLact3)
-    ewesLact2 = c(damsOfDamsLact2, damsOfSiresLact2)
-    ewesLact1 = c(damsOfDamsLact1, damsOfSiresLact1)
-    
-    damsOfSiresLact4 = selectInd(ewesLact3, nInd = nDamsOfSiresLact4, use = use) # damsOfSiresLact4 are 4 years old here
-    damsOfSiresLact3 = selectInd(ewesLact2, nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact3 are 3 years old here
-    damsOfSiresLact2 = selectInd(ewesLact1, nInd = nDamsOfSiresLact2, use = use) # damsOfSiresLact2 are 2 years old here
-    damsOfSiresLact1 = selectInd(lambs[selNtlRams], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
-    # Note that damsOfSires are in reality selected only from AI sires only, hence
-    #   we should use selectInd(damsOfSiresLact3, ...), but if we select on EBV we
-    #   should grab the best females anyway!
-    
-    # Set phenotypes to missing, because these are copied from the previous lactation.
-    #   We do this because of the recordData() call below - that would save wrong
-    #   phenotypes for these animals in this life stage! Correct phenotypes for these
-    #   animals in this life stage will be added at the beginning of the next year.
-    damsOfSiresLact4@pheno[,] = NA
-    damsOfSiresLact3@pheno[,] = NA
-    damsOfSiresLact2@pheno[,] = NA
-    damsOfSiresLact1@pheno[,] = NA
-    
-    damsOfSires = c(damsOfSiresLact4, damsOfSiresLact3, damsOfSiresLact2, damsOfSiresLact1)
-    
-    # ---- ... Dams Of Dams ----
-    
-    cat("... Dams Of Dams", as.character(Sys.time()), "\n")
-    
-    damsOfDamsLact4 = selectInd(ewesLact3[!ewesLact3@id %in% damsOfSiresLact4@id],
-                                nInd = nDamsOfDamsLact4, use = "rand") # damsOfDamsLact4 are 4 years old here
-    
-    damsOfDamsLact3 = selectInd(ewesLact2[!ewesLact2@id %in% damsOfSiresLact3@id],
-                                nInd = nDamsOfDamsLact3, use = "rand") # damsOfDamsLact3 are 3 years old here
-    
-    damsOfDamsLact2 = selectInd(ewesLact1[!ewesLact1@id %in% damsOfSiresLact2@id],
-                                nInd = nDamsOfDamsLact2, use = "rand") # damsOfDamsLact2 are 2 years old here
-    
-    damsOfDamsLact1 = selectInd(pop = lambs[!lambs@id %in% damsOfSiresLact1@id],
-                                nInd = nDamsOfDamsLact1, use = "rand", sex = "F") # damsOfDamsLact1 are 1 years old here
-    
-    # Set phenotypes to missing, because these are copied from the previous lactation.
-    #   We do this because of the recordData() call below - that would save wrong
-    #   phenotypes for these animals in this life stage! Correct phenotypes for these
-    #   animals in this life stage will be added at the beginning of the next year.
-    damsOfDamsLact4@pheno[,] = NA
-    damsOfDamsLact3@pheno[,] = NA
-    damsOfDamsLact2@pheno[,] = NA
-    damsOfDamsLact1@pheno[,] = NA
-    
-    damsOfDams = c(damsOfDamsLact4, damsOfDamsLact3, damsOfDamsLact2, damsOfDamsLact1)
-    
-    # ---- Generate lambs ----
-    
-    cat("Generate lambs", as.character(Sys.time()), "\n")
-    # TODO add prob argument to sample for OCS scenario with optimize contributions, BUT we need optimal contributions for AISiresOfSires1 and AISiresOfSires2 which we don't have at the moment
-    matingPlan1 = cbind(damsOfSires@id,
-                        sample(AISiresOfSires@id, size = nDamsOfSires, replace = TRUE))
-    
-    n = nLambsFromAISiresOfSires - nDamsOfSires
-    damsOfDamsId = damsOfDams@id
-    damsOfDamsIdForElite = sample(damsOfDamsId, size = n)
-    matingPlan2 = cbind(damsOfDamsIdForElite,
-                        sample(AISiresOfSires@id, size = n, replace = TRUE))
-    
-    n = nDamsOfDams - (nLambsFromAISiresOfSires - nDamsOfSires)
-    damsOfDamsIdForRest = damsOfDamsId[!damsOfDamsId %in% damsOfDamsIdForElite]
-    matingPlan3 = cbind(damsOfDamsIdForRest,
-                        sample(c(sample(AISiresOfDams@id, size = nLambsFromAIRest, replace = TRUE),
-                                 sample(wtRams1@id, size = nLambsFromAIForPT, replace = TRUE),
-                                 sample(NMSires@id, size = nLambsFromNM, replace = TRUE))))
-    # Note that:
-    # 1) sample(pop, size = n, replace = TRUE) gives us n contributions from pop
-    # 2) sample(c(sample(), sample(), sample())) shuffles selected male contributions
-    #    across female contributions (=random mating)
-    
-    matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
-    lambs = makeCross2(females = c(damsOfSires, damsOfDams),
-                       males = c(AISiresOfSires, AISiresOfDams, wtRams1, NMSires),
-                       crossPlan = matingPlan)
-    lambs = fillInMisc(pop = lambs,
-                       mothers = c(damsOfSires, damsOfDams),
-                       permEnvVar = permVar, year = yearFull)
-    
-    # ---- Data recording ----
-    
-    cat("Data recording", as.character(Sys.time()), "\n")
-    
-    database = recordData(database, pop = AISiresOfSires3, year = yearFull)
-    database = recordData(database, pop = AISiresOfSires2, year = yearFull)
-    database = recordData(database, pop = AISiresOfSires1, year = yearFull)
-    database = recordData(database, pop = AISiresOfSires, year = yearFull)
-    database = recordData(database, pop = AISiresOfDams3, year = yearFull)
-    database = recordData(database, pop = AISiresOfDams2, year = yearFull)
-    database = recordData(database, pop = AISiresOfDams1, year = yearFull)
-    database = recordData(database, pop = AISiresOfDams, year = yearFull)
-    database = recordData(database, pop = wtRams2, year = yearFull)
-    database = recordData(database, pop = wtRams1, year = yearFull)
-    database = recordData(database, pop = NMSires, year = yearFull)
-    database = recordData(database, pop = damsOfSiresLact4, year = yearFull, lactation = 4)
-    database = recordData(database, pop = damsOfSiresLact3, year = yearFull, lactation = 3)
-    database = recordData(database, pop = damsOfSiresLact2, year = yearFull, lactation = 2)
-    database = recordData(database, pop = damsOfSiresLact1, year = yearFull, lactation = 1)
-    # database = recordData(database, pop = damsOfSires, year = yearFull, lactation = ???) # can not save like this since lactations vary
-    database = recordData(database, pop = damsOfDamsLact4, year = yearFull, lactation = 4)
-    database = recordData(database, pop = damsOfDamsLact3, year = yearFull, lactation = 3)
-    database = recordData(database, pop = damsOfDamsLact2, year = yearFull, lactation = 2)
-    database = recordData(database, pop = damsOfDamsLact1, year = yearFull, lactation = 1)
-    # database = recordData(database, pop = damsOfDams, year = yearFull, lactation = ???) # can not save like this since lactations vary
-    database = recordData(database, pop = lambs, year = yearFull)
-    
-    # Save workspace image
-    # fileName = paste("scenario_year", year, ".RData", sep = "")
-    # save.image(file = fileName)
-    # load(file = fileName)
-    # sourceFunctions(dir = "../..") # to ensure we have the latest version (countering save.image())
+    selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
+    AISiresOfSires1 = wtRams2[selAICandidates]
+  }
+  else if (scenario %in% c("std", "idl")) {      
+    AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
+                                      use = use, famType = "M")
+    AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
+                                use = use)
   }
   
+  # ---- ... AI Sire Of Dams ----
+  
+  cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
+  
+  AISiresOfDams3 = AISiresOfDams2 # AISiresOfDams3 are 5.5 years old here
+  AISiresOfDams2 = AISiresOfDams1 # AISiresOfDams2 are 4.5 years old here
+  
+  if (all(wtRams2@father == "0")) {
+    sel = !wtRams2@id %in% AISiresOfSires1@id
+    AISiresOfDams1 = selectInd(pop = wtRams2[sel], nInd = nAISiresOfDams1, # AISiresOfDams1 are 3.5 years old here
+                               use = use)
+  } else {
+    sel = !wtRams2@id %in% AISiresOfSires1@id
+    AISiresOfDams1 = selectWithinFam(pop = wtRams2[sel], nInd = 2, # AISiresOfDams1 are 3.5 years old here
+                                     use = use, famType = "M")
+    AISiresOfDams1 = selectInd(pop = AISiresOfDams1, nInd = nAISiresOfDams1,
+                               use = use)
+  }
+  cat("Select rams\n")
+  
+  # ---- ... Selecting males from lambs ----
+  # Note that we select wtRams only from lambs from AI Sire Of Sires (not waiting rams) and Dams Of Sires
+  selWtRams = lambs@father %in% AISiresOfSires@id & lambs@mother %in% damsOfSires@id
+  n = ceiling(nWtRams1 / length(AISiresOfSires@id))
+  wtRams2 = wtRams1
+  wtRams1 = selectWithinFam(pop = lambs[selWtRams], nInd = n,
+                            use = use, famType = "M", sex = "M")
+  wtRams1 = selectInd(pop = wtRams1, nInd = nWtRams1,
+                      use = use)
+  
+  selNtlRams = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
+    !lambs@id %in% wtRams1@id
+  NMSires =  selectInd(pop = lambs[selNtlRams], nInd = nNMSires,
+                       use = use, famType = "M", sex = "M")
+  
+  
+  AISiresOfSires = c(AISiresOfSires3, AISiresOfSires2, AISiresOfSires1)
+  AISiresOfDams = c(AISiresOfDams3, AISiresOfDams2, AISiresOfDams1)
+  
+  # ---- Select ewes ----
+  
+  cat("Select ewes\n")
+  
+  # ---- ... Dams Of Sires ----
+  
+  cat("... Dams Of Sires", as.character(Sys.time()), "\n")
+  
+  ewesLact4 = c(damsOfDamsLact4, damsOfSiresLact4)
+  ewesLact3 = c(damsOfDamsLact3, damsOfSiresLact3)
+  ewesLact2 = c(damsOfDamsLact2, damsOfSiresLact2)
+  ewesLact1 = c(damsOfDamsLact1, damsOfSiresLact1)
+  
+  damsOfSiresLact4 = selectInd(ewesLact3, nInd = nDamsOfSiresLact4, use = use) # damsOfSiresLact4 are 4 years old here
+  damsOfSiresLact3 = selectInd(ewesLact2, nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact3 are 3 years old here
+  damsOfSiresLact2 = selectInd(ewesLact1, nInd = nDamsOfSiresLact2, use = use) # damsOfSiresLact2 are 2 years old here
+  damsOfSiresLact1 = selectInd(lambs[selNtlRams], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
+  # Note that damsOfSires are in reality selected only from AI sires only, hence
+  #   we should use selectInd(damsOfSiresLact3, ...), but if we select on EBV we
+  #   should grab the best females anyway!
+  
+  # Set phenotypes to missing, because these are copied from the previous lactation.
+  #   We do this because of the recordData() call below - that would save wrong
+  #   phenotypes for these animals in this life stage! Correct phenotypes for these
+  #   animals in this life stage will be added at the beginning of the next year.
+  damsOfSiresLact4@pheno[,] = NA
+  damsOfSiresLact3@pheno[,] = NA
+  damsOfSiresLact2@pheno[,] = NA
+  damsOfSiresLact1@pheno[,] = NA
+  
+  damsOfSires = c(damsOfSiresLact4, damsOfSiresLact3, damsOfSiresLact2, damsOfSiresLact1)
+  
+  # ---- ... Dams Of Dams ----
+  
+  cat("... Dams Of Dams", as.character(Sys.time()), "\n")
+  
+  damsOfDamsLact4 = selectInd(ewesLact3[!ewesLact3@id %in% damsOfSiresLact4@id],
+                              nInd = nDamsOfDamsLact4, use = "rand") # damsOfDamsLact4 are 4 years old here
+  
+  damsOfDamsLact3 = selectInd(ewesLact2[!ewesLact2@id %in% damsOfSiresLact3@id],
+                              nInd = nDamsOfDamsLact3, use = "rand") # damsOfDamsLact3 are 3 years old here
+  
+  damsOfDamsLact2 = selectInd(ewesLact1[!ewesLact1@id %in% damsOfSiresLact2@id],
+                              nInd = nDamsOfDamsLact2, use = "rand") # damsOfDamsLact2 are 2 years old here
+  
+  damsOfDamsLact1 = selectInd(pop = lambs[!lambs@id %in% damsOfSiresLact1@id],
+                              nInd = nDamsOfDamsLact1, use = "rand", sex = "F") # damsOfDamsLact1 are 1 years old here
+  
+  # Set phenotypes to missing, because these are copied from the previous lactation.
+  #   We do this because of the recordData() call below - that would save wrong
+  #   phenotypes for these animals in this life stage! Correct phenotypes for these
+  #   animals in this life stage will be added at the beginning of the next year.
+  damsOfDamsLact4@pheno[,] = NA
+  damsOfDamsLact3@pheno[,] = NA
+  damsOfDamsLact2@pheno[,] = NA
+  damsOfDamsLact1@pheno[,] = NA
+  
+  damsOfDams = c(damsOfDamsLact4, damsOfDamsLact3, damsOfDamsLact2, damsOfDamsLact1)
+  
+  # ---- Generate lambs ----
+  
+  cat("Generate lambs", as.character(Sys.time()), "\n")
+  # TODO add prob argument to sample for OCS scenario with optimize contributions, BUT we need optimal contributions for AISiresOfSires1 and AISiresOfSires2 which we don't have at the moment
+  matingPlan1 = cbind(damsOfSires@id,
+                      sample(AISiresOfSires@id, size = nDamsOfSires, replace = TRUE))
+  
+  n = nLambsFromAISiresOfSires - nDamsOfSires
+  damsOfDamsId = damsOfDams@id
+  damsOfDamsIdForElite = sample(damsOfDamsId, size = n)
+  matingPlan2 = cbind(damsOfDamsIdForElite,
+                      sample(AISiresOfSires@id, size = n, replace = TRUE))
+  
+  n = nDamsOfDams - (nLambsFromAISiresOfSires - nDamsOfSires)
+  damsOfDamsIdForRest = damsOfDamsId[!damsOfDamsId %in% damsOfDamsIdForElite]
+  matingPlan3 = cbind(damsOfDamsIdForRest,
+                      sample(c(sample(AISiresOfDams@id, size = nLambsFromAIRest, replace = TRUE),
+                               sample(wtRams1@id, size = nLambsFromAIForPT, replace = TRUE),
+                               sample(NMSires@id, size = nLambsFromNM, replace = TRUE))))
+  # Note that:
+  # 1) sample(pop, size = n, replace = TRUE) gives us n contributions from pop
+  # 2) sample(c(sample(), sample(), sample())) shuffles selected male contributions
+  #    across female contributions (=random mating)
+  
+  matingPlan = rbind(matingPlan1, matingPlan2, matingPlan3)
+  lambs = makeCross2(females = c(damsOfSires, damsOfDams),
+                     males = c(AISiresOfSires, AISiresOfDams, wtRams1, NMSires),
+                     crossPlan = matingPlan)
+  lambs = fillInMisc(pop = lambs,
+                     mothers = c(damsOfSires, damsOfDams),
+                     permEnvVar = permVar, year = yearFull)
+  
+  # ---- Data recording ----
+  
+  cat("Data recording", as.character(Sys.time()), "\n")
+  
+  database = recordData(database, pop = AISiresOfSires3, year = yearFull)
+  database = recordData(database, pop = AISiresOfSires2, year = yearFull)
+  database = recordData(database, pop = AISiresOfSires1, year = yearFull)
+  database = recordData(database, pop = AISiresOfSires, year = yearFull)
+  database = recordData(database, pop = AISiresOfDams3, year = yearFull)
+  database = recordData(database, pop = AISiresOfDams2, year = yearFull)
+  database = recordData(database, pop = AISiresOfDams1, year = yearFull)
+  database = recordData(database, pop = AISiresOfDams, year = yearFull)
+  database = recordData(database, pop = wtRams2, year = yearFull)
+  database = recordData(database, pop = wtRams1, year = yearFull)
+  database = recordData(database, pop = NMSires, year = yearFull)
+  database = recordData(database, pop = damsOfSiresLact4, year = yearFull, lactation = 4)
+  database = recordData(database, pop = damsOfSiresLact3, year = yearFull, lactation = 3)
+  database = recordData(database, pop = damsOfSiresLact2, year = yearFull, lactation = 2)
+  database = recordData(database, pop = damsOfSiresLact1, year = yearFull, lactation = 1)
+  # database = recordData(database, pop = damsOfSires, year = yearFull, lactation = ???) # can not save like this since lactations vary
+  database = recordData(database, pop = damsOfDamsLact4, year = yearFull, lactation = 4)
+  database = recordData(database, pop = damsOfDamsLact3, year = yearFull, lactation = 3)
+  database = recordData(database, pop = damsOfDamsLact2, year = yearFull, lactation = 2)
+  database = recordData(database, pop = damsOfDamsLact1, year = yearFull, lactation = 1)
+  # database = recordData(database, pop = damsOfDams, year = yearFull, lactation = ???) # can not save like this since lactations vary
+  database = recordData(database, pop = lambs, year = yearFull)
+  
   # Save workspace image
-  save.image(file = "scenario.RData")
-  # load(file = "scenario.RData")
+  # fileName = paste("scenario_year", year, ".RData", sep = "")
+  # save.image(file = fileName)
+  # load(file = fileName)
   # sourceFunctions(dir = "../..") # to ensure we have the latest version (countering save.image())
+}
+
+# Save workspace image
+save.image(file = "scenario.RData")
+# load(file = "scenario.RData")
+# sourceFunctions(dir = "../..") # to ensure we have the latest version (countering save.image())
 }
