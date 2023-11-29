@@ -199,7 +199,7 @@ genInt              = 4                                                         
 BaseNe              = 150                                                          # effective population size
 nChr                = 26                                                           # no. of chromosomes
 ChrSize             = 95 * 1e6                                                     # chr. size
-nQTL                = 4500                                                         # no. of QTLs
+nQTL                = 251                                                          # no. of QTLs of MY,  4500 QTL for the 272 base traits
 nQTLPerChr          = round(nQTL / nChr)                                           # no. of QTLs per chromosome
 nSNPPerChr          = 4000                                                         # no. of markers per chromosome
 RecRate             = 1.3e-8                                                       # recombination rate
@@ -242,8 +242,8 @@ permVar             = 400 * varScale # 500 (Old value) - 100 = 400 (new value)  
 resVar              = 1500 * varScale                                              # residual variance
 domVar              = addVar * 0.1                                                 # dominance variance
 fullInbreedDepress  = 70                                                           # depression with complete inbreeding
-meanDD              = 0.11                                                         # dominance parameters - see use of altAddTraitAD() below
-varDD               = 0.26                                                         # dominance parameters - see use of altAddTraitAD() below
+meanDD              = 0.46                                                         # dominance parameters - see use of altAddTraitAD() below
+varDD               = 0.10                                                         # dominance parameters - see use of altAddTraitAD() below
 idlVar              = domVar # TODO: how do we get this? Estimate from the data?
 #       https://github.com/SimonaAntonios/santonios_sheep_idl/issues/17
 # Based on these values we expect this phenotypic variance and ratios
@@ -378,8 +378,8 @@ if (burnin) {
     # New trait called Trait1 was added 
     # Dominance variance is 49.96618 
     # Inbreeding depression is 70.00227 
-    # Used meanDD equals 0.1063283 
-    # Used varDD equals 0.2595959 
+    # Used meanDD equals 0.4635916  
+    # Used varDD equals 0.1049338 
   }
   # ... and used these parameters here
   SP$addTraitAD(nQtlPerChr = nQTLPerChr, mean = 0, var = addVar, meanDD = meanDD, varDD = varDD)
