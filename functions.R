@@ -125,7 +125,8 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
                                     Sex         = pop@sex,
                                     Lactation   = lactation,
                                     Herd        = herd,
-                                    HerdYear    = herdYear),
+                                    HerdYear    = herdYear,
+                                    Tbv   = bv(pop)),
                Pheno = pop@pheno,
                Gv    = pop@gv,
                Ebv   = pop@ebv)
