@@ -7,20 +7,19 @@
 #
 # Usage:
 #
-# ./simulation.R rep [burnin|scenario] [std|stdOCS|idl|idlOCS] [restart]
+# ./simulation.R rep [burnin|scenario] [std|idl] [restart]
 #
 # where:
 #
 # std - standard pedigree-based BLUP model & truncation selection on BV
 # idl - std extended with IDL & truncation selection on BV + IDL
-# stdOCS - std model & OCS on BV
-# idlOCS - idl model & OCS on BV + IDL
+
 #
 # examples:
 #
 # ./simulation.R 1 burnin
 # ./simulation.R 1 scenario std
-# ./simulation.R 1 scenario stdOCS
+# ./simulation.R 1 scenario XX (this one may counts for the mate allocation)
 
 # ---- Setup -------------------------------------------------------------------
 
@@ -32,7 +31,7 @@ rm(list = ls())
 args = commandArgs(trailingOnly = TRUE)
 # args = c("1", "burnin")
 # args = c("1", "scenario", "std")
-# args = c("1", "scenario", "stdOCS")
+# args = c("1", "scenario", "XX")
 
 if (length(args) < 2) {
   stop("You must provide at least 2 arguments!")
@@ -52,7 +51,7 @@ if (burninOrScenario == "burnin") {
 }
 scenarios = !burnin
 
-# Argument 3: [std|stdOCS|idl|idlOCS]
+# Argument 3: [std|XX|idl]
 if (burnin) {
   scenario = NA
 } else {
@@ -60,8 +59,8 @@ if (burnin) {
     stop("You must provide at least 3 arguments when running scenarios!")
   }
   scenario = args[3]
-  if (!scenario %in% c("std", "stdOCS", "idl", "idlOCS")) {
-    stop("Argument 3 must be either std, stdOCS, idl, or idlOCS!")
+  if (!scenario %in% c("std", "XX", "idl")) {
+    stop("Argument 3 must be either std, XX, or idl!")
   }
 }
 
@@ -916,8 +915,7 @@ if (burnin) {
     # ---- Generate lambs ----
     
     cat("Generate lambs", as.character(Sys.time()), "\n")
-    
-    matingPlan1 = cbind(damsOfSires@id,
+       matingPlan1 = cbind(damsOfSires@id,
                         sample(AISiresOfSires@id, size = nDamsOfSires, replace = TRUE))
     
     n = nLambsFromAISiresOfSires - nDamsOfSires
@@ -1073,7 +1071,7 @@ if (scenarios) {
       variances = list(varPE = permVar,
                        varA  = addVar,
                        varE  = resVar)
-    } else if (scenario %in% c("idl", "idlOCS")) {
+    } else if (scenario %in% c("idl")) {
       variances = list(varPE = permVar,
                        varA  = addVar,
                        varIDL = idlVar,
@@ -1156,7 +1154,7 @@ if (scenarios) {
       filter(pop != "AISiresOfSires", pop != "AISiresOfDams" )
     write.table(x = animal_data, file = "animal_data.txt", append = TRUE, col.names = FALSE)
     
-    
+  
     correlation = data.frame(year = year,
                              AISiresOfSires3 = calcAccuracyEbvVsTgv(AISiresOfSires3),
                              AISiresOfSires2 = calcAccuracyEbvVsTgv(AISiresOfSires2),
@@ -1200,12 +1198,8 @@ if (scenarios) {
       AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
                                   use = use)
     }
-    else if (scenario %in% c("stdOCS", "idlOCS")) {
-      selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
-      AISiresOfSires1 = wtRams2[selAICandidates]
-      
-      selAICandidates = wtRams2@id %in% AICandidates$Indiv # selecting the wtRams2 that have the top 10 OC
-      AISiresOfSires1 = wtRams2[selAICandidates]
+    # TODO: waiting for the third scenario 
+      else if (scenario %in% "XX") { 
     }
     
     
@@ -1311,8 +1305,7 @@ if (scenarios) {
     # ---- Generate lambs ----
     
     cat("Generate lambs", as.character(Sys.time()), "\n")
-    # TODO add prob argument to sample for OCS scenario with optimize contributions, BUT we need optimal contributions for AISiresOfSires1 and AISiresOfSires2 which we don't have at the moment
-    matingPlan1 = cbind(damsOfSires@id,
+     matingPlan1 = cbind(damsOfSires@id,
                         sample(AISiresOfSires@id, size = nDamsOfSires, replace = TRUE))
     
     n = nLambsFromAISiresOfSires - nDamsOfSires
