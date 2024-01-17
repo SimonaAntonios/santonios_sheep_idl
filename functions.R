@@ -42,6 +42,8 @@ getIIdPop = function(pop, popObject = NULL) {
 }
 
 areRelated <- function(id1, id2, pop1, pop2) {
+  # this function is to retains individuals that are related like follow
+  # if id1 that is from pop1 and id2 from pop2 are siblings or parent-offspring 
   mother1 <- pop1@mother[pop1@id == id1]
   father1 <- pop1@father[pop1@id == id1]
   
