@@ -127,7 +127,7 @@ sourceFunctions() # to ensure we have the latest version (countering save.image(
 
 cat("Global parameters\n")
 
-nEwes               = 80000                                                        # no. of all females
+nEwes               = 80000/2                                                        # no. of all females
 NM_Fertility        = 0.9                                                          # fertility in Natural Mating (NM)
 NM_prolificacy      = 1.4                                                          # prolificacy in NM
 AI_Fertility        = 0.6                                                          # fertility in Artificial Insemination (AI)
@@ -144,10 +144,10 @@ if (FALSE) {
   NMLambRate * nEwesInNM + AILambRate* nEwesInAI # 66,600 lambs
 }
 
-# We are setting the no. of ewes from the above number of lambs (simulating only successful lactations!)
-nFemalesInLactation = 66600                                                        # no. of females in lactation
-nDamsOfSires          = 6000
-nDamsOfDams      = 60600
+# We are setting the no. of ewes from the above number of lambs (simulating only successful lactations!) and I am deviding only the females number by 2 to reduce the number of animals in the pedigree
+nFemalesInLactation = 66600/2                                                        # no. of females in lactation
+nDamsOfSires          = 6000/2
+nDamsOfDams      = 60600/2
 
 nWtRams1            = 150                                                          # no. of waiting rams for progeny testing
 nWtRams2            = 150                                                          # no. of waiting rams for progeny testing
@@ -163,11 +163,11 @@ nAISiresOfSiresDose      = 400                                                  
 nWtRamsAIDose       = 85                                                           # no. of AI doses per wating ram
 nNMDose      = 40                                                           # no. of natural matings per NM ram
 
-# Number of lambs from different matings
-nLambsFromAISiresOfSires = round(nAISiresOfSires * nAISiresOfSiresDose * AILambRate) # 8,640
-nLambsFromAIForPT = round(nWtRams1 * nWtRamsAIDose * AILambRate) # 9,180
-nLambsFromAIRest = round((nEwesInAI - (nAISiresOfSires * nAISiresOfSiresDose + nWtRams1 * nWtRamsAIDose)) * AILambRate) # 10,980
-nLambsFromNM = round(nNMSires * nNMDose * NMLambRate) # 37,800
+# Number of lambs from different matings, I divided them by 2
+nLambsFromAISiresOfSires = round(nAISiresOfSires * nAISiresOfSiresDose * AILambRate)/2 # 8,640
+nLambsFromAIForPT = round(nWtRams1 * nWtRamsAIDose * AILambRate)/2 # 9,180
+nLambsFromAIRest = round((nEwesInAI*2 - (nAISiresOfSires * nAISiresOfSiresDose + nWtRams1 * nWtRamsAIDose)) * AILambRate)/2 # 10,980
+nLambsFromNM = round(nNMSires * nNMDose * NMLambRate)/2 # 37,800
 
 pDamsOfDamsLact1 = 0.30                                                         # prop. of Dams Of Dams in lactation 1
 pDamsOfDamsLact2 = 0.28                                                         # prop. of Dams Of Dams in lactation 2
