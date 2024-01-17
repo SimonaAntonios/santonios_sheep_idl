@@ -1227,8 +1227,6 @@ if (scenarios) {
     else if (scenario %in% "XX") { 
     }
     
-    
-    
     # ---- ... AI Sire Of Dams ----
     
     cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
@@ -1330,21 +1328,46 @@ if (scenarios) {
     # ---- Generate lambs ----
     
     cat("Generate lambs", as.character(Sys.time()), "\n")
-    matingPlan1 = cbind(damsOfSires@id,
-                        sample(AISiresOfSires@id, size = nDamsOfSires, replace = TRUE))
+    matingPlan1 <- matrix(NA, ncol = 2, nrow = nDamsOfSires)
+    for (i in 1:nDamsOfSires) {
+      repeat {
+        sire <- sample(AISiresOfSires@id, size = 1)
+        if (!areRelated(damsOfSires@id[i], sire, damsOfSires, AISiresOfSires)) {
+          matingPlan1[i, ] <- c(damsOfSires@id[i], sire)
+          break
+        }
+      }
+    }
     
     n = nLambsFromAISiresOfSires - nDamsOfSires
-    damsOfDamsId = damsOfDams@id
     damsOfDamsIdForElite = sample(damsOfDamsId, size = n)
-    matingPlan2 = cbind(damsOfDamsIdForElite,
-                        sample(AISiresOfSires@id, size = n, replace = TRUE))
+    matingPlan2 <- matrix(NA, ncol = 2, nrow = n)
+    for (i in 1:n) {
+      repeat {
+        sire <- sample(AISiresOfSires@id, size = 1)
+        if (!areRelated(damsOfDamsIdForElite[i], sire, damsOfDams, AISiresOfSires)) {
+          matingPlan2[i, ] <- c(damsOfDamsIdForElite[i], sire)
+          break
+        }
+      }
+    }
     
     n = nDamsOfDams - (nLambsFromAISiresOfSires - nDamsOfSires)
-    damsOfDamsIdForRest = damsOfDamsId[!damsOfDamsId %in% damsOfDamsIdForElite]
-    matingPlan3 = cbind(damsOfDamsIdForRest,
-                        sample(c(sample(AISiresOfDams@id, size = nLambsFromAIRest, replace = TRUE),
-                                 sample(wtRams1@id, size = nLambsFromAIForPT, replace = TRUE),
-                                 sample(NMSires@id, size = nLambsFromNM, replace = TRUE))))
+    matingPlan3 = matrix(NA, ncol = 2, nrow = n)
+    damsOfDamsIdForRest = sample(damsOfDams@id[!damsOfDams@id %in% damsOfDamsIdForElite])
+    siresAll= sample(c(sample(AISiresOfDams@id, size = nLambsFromAIRest, replace = TRUE),
+                       sample(wtRams1@id, size = nLambsFromAIForPT, replace = TRUE),
+                       sample(NMSires@id, size = nLambsFromNM, replace = TRUE)))
+    siresPop = c(AISiresOfDams, wtRams1, NMSires)
+    for (i in 1:n) {
+      repeat {
+        sire <- sample(siresAll, size = 1)
+        if (!areRelated(damsOfDamsIdForRest[i], sire, damsOfDams, siresPop)) {
+          matingPlan3[i, ] <- c(damsOfDamsIdForRest[i], sire)
+          break
+        }
+      }
+    }
     # Note that:
     # 1) sample(pop, size = n, replace = TRUE) gives us n contributions from pop
     # 2) sample(c(sample(), sample(), sample())) shuffles selected male contributions
