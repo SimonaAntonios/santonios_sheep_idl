@@ -41,6 +41,29 @@ getIIdPop = function(pop, popObject = NULL) {
   return(ret)
 }
 
+areRelated <- function(id1, id2, pop1, pop2) {
+  mother1 <- pop1@mother[pop1@id == id1]
+  father1 <- pop1@father[pop1@id == id1]
+  
+  mother2 <- pop2@mother[pop2@id == id2]
+  father2 <- pop2@father[pop2@id == id2]
+  
+  # Check if individuals are siblings
+  if (mother1 != 0 && mother2 != 0 && mother1 == mother2 &&
+      father1 != 0 && father2 != 0 && father1 == father2) {
+    # print('siblings') # Siblings
+    return(TRUE)
+  }
+  # Check if individuals have a parent-offspring relationship
+  if ((id1 %in% c(mother2, father2)) || (id2 %in% c(mother1, father1))) {
+    # print('Parent-ofspring')
+    # print(paste("id1", id1,"id2", id2))
+    return(TRUE)  # Parent-ofspring
+  }
+  # print('non-related')# Not related
+  return(FALSE)
+}
+
 fillInMisc = function(pop, mothers = NULL, herds = NULL, permEnvVar = NULL,
                       year = NA) {
   # Fill in the misc slot of a population
