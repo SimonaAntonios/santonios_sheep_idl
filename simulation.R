@@ -622,7 +622,7 @@ if (burnin) {
   database = recordData(database, pop = lambs, year = startYear)
   
   # Save workspace image
-  # save.image(file = "fillin.RData")
+  save.image(file = "fillin.RData")
   # load(file = "fillin.RData")
   # sourceFunctions(dir = "../..") # to ensure we have the latest version (countering save.image())
   
@@ -927,6 +927,7 @@ if (burnin) {
     }
     
     n = nLambsFromAISiresOfSires - nDamsOfSires
+    damsOfDamsId = damsOfDams@id
     damsOfDamsIdForElite = sample(damsOfDamsId, size = n)
     matingPlan2 <- matrix(NA, ncol = 2, nrow = n)
     for (i in 1:n) {
