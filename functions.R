@@ -318,6 +318,7 @@ estimateBreedingValues = function(pedigree, database,
     
     # Define replacements as a list of old and new lines
     replacements <- list(
+      list(old_line = " renf90.dat", new_line = " renf90.dat.F"),
       list(old_line = "           6", new_line = "           10"),
       list(old_line = "     5", new_line = "     5  6"),
       list(old_line = "   500.00    ", new_line =paste("   500.00    ", round(covIDLAdd, digits = 2))),
@@ -349,7 +350,7 @@ estimateBreedingValues = function(pedigree, database,
         paste("# total inbreeding"),
         paste("19         1 cov"),
         parameters[(numberOfEffectsPosition + 12):(numberOfEffectsPosition + 21)],
-        paste(round(covIDLAdd, digits = 2), idlVar, sep = "    "),
+        paste("", round(covIDLAdd, digits = 2), idlVar, sep = "    "),
         parameters[(numberOfEffectsPosition + 22):length(parameters)]
       )
       # Write the updated parameter file
