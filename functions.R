@@ -200,7 +200,7 @@ estimateBreedingValues = function(pedigree, database,
   #   things up)
   # inbLoadModel logical, are we running the standard model or model with
   #   inbreeding depression load (not yet used)
-
+  
   # ---- Prepare pedigree file ----
   pedigree = data.table(IId = rownames(pedigree),
                         FId = pedigree[, "father"],
@@ -210,9 +210,9 @@ estimateBreedingValues = function(pedigree, database,
     pedigree = pedigree[!removeFromEvaluation, ]
   }
   fwrite(x = pedigree, file = "pedigree.txt", quote = FALSE,
-    row.names = FALSE, col.names = FALSE, sep = " ")
+         row.names = FALSE, col.names = FALSE, sep = " ")
   # rm(pedigree)
-
+  
   # ---- Prepare phenotype file ----
   sel = rowSums(!is.na(database$Pheno[, trait, drop = FALSE])) > 0
   tmp = database$Pheno[sel, , drop = FALSE]
@@ -226,7 +226,7 @@ estimateBreedingValues = function(pedigree, database,
   fwrite(x = phenotypes[, ..sel], file = "phenotype.txt", quote = FALSE,
          row.names = FALSE, col.names = FALSE, sep = " ")
   rm(phenotypes)
-
+  
   # ---- Prepare parameter file ----
   sink(file = "renum.par", type = "output")
   cat("# Renumf90 parameter file\n",
@@ -278,103 +278,96 @@ estimateBreedingValues = function(pedigree, database,
       "OPTION origID\n",
       "OPTION saveAinv\n",
       "OPTION saveAinvOrig\n",
-    sep = "")
+      sep = "")
   sink()
-
+  
   # ---- Run the command ----
   system(command = "echo renum.par | renumf90 | tee renum.log")
   system(command = "echo renf90.par | blupf90+ | tee blup.log")
-  updateRenf90Par <- function(input_file, output_file) {
+  # Functions to update BLUPF90 parameter file with the new one including the IDL
+  
+  # this function is to replace certain values and lines
+  ReplacingValuesRenf90 <- function(input_file, output_file, replacements) {
     # Read the existing parameter file
     parameters <- readLines(input_file)
     
-    
-    # Functions to update BLUPF90 parameter file with the new one including the IDL
-    
-    # this function is to replace certain values and lines
-    ReplacingValuesRenf90 <- function(input_file, output_file, replacements) {
-      # Read the existing parameter file
-      parameters <- readLines(input_file)
+    # Replace each old line with the corresponding new line
+    for (replacement in replacements) {
+      old_line <- replacement$old_line
+      new_line <- replacement$new_line
       
-      # Replace each old line with the corresponding new line
-      for (replacement in replacements) {
-        old_line <- replacement$old_line
-        new_line <- replacement$new_line
-        
-        # Find the index of the line to be replaced
-        line_to_replace_index <- which(parameters == old_line)
-        
-        # Replace the line with the new content
-        parameters[line_to_replace_index] <- new_line
-      }
+      # Find the index of the line to be replaced
+      line_to_replace_index <- which(parameters == old_line)
       
-      # Write the updated parameter file
-      writeLines(parameters, output_file)
+      # Replace the line with the new content
+      parameters[line_to_replace_index] <- new_line
     }
     
-    # Example usage
-    input_file <- "renf90.par"
-    output_file <- "updated_renf90.par"
+    # Write the updated parameter file
+    writeLines(parameters, output_file)
+  }
+  
+  # file usage
+  input_file <- "renf90.par"
+  output_file <- "updated_renf90.par"
+  
+  # Define replacements as a list of old and new lines
+  replacements <- list(
+    list(old_line = " renf90.dat", new_line = " renf90.dat.F"),
+    list(old_line = "           6", new_line = "           10"),
+    list(old_line = "     5", new_line = "     5  6"),
+    list(old_line = "   600.00    ", new_line =paste(round(addVar, digits = 2), round(covIDLAdd, digits = 2))),
+    list(old_line = "     6", new_line = "     9")
+    # Add more pairs of old and new lines as needed
+  )
+  
+  ReplacingValuesRenf90(input_file, output_file, replacements)
+  
+  # this function is to add lines
+  updateRenf90Par <- function(inputFile, outputFile) {
+    # Read the existing parameter file
+    parameters <- readLines(inputFile)
     
-    # Define replacements as a list of old and new lines
-    replacements <- list(
-      list(old_line = " renf90.dat", new_line = " renf90.dat.F"),
-      list(old_line = "           6", new_line = "           10"),
-      list(old_line = "     5", new_line = "     5  6"),
-      list(old_line = "   500.00    ", new_line =paste("   500.00    ", round(covIDLAdd, digits = 2))),
-      list(old_line = "     6", new_line = "     9")
-      # Add more pairs of old and new lines as needed
+    # Find the position to add the NUMBER_OF_EFFECTS information
+    numberOfEffectsPosition <- grep("NUMBER_OF_EFFECTS", parameters) + 11
+    
+    # Add the  information
+    updatedParameters <- c(
+      parameters[1:numberOfEffectsPosition],
+      paste("# cov1 nested in ancestor1 (in column 14)"),
+      paste("13         0 cov 14"),
+      paste("15         0 cov 16"),
+      paste("17     ", nrow(pedigree), "cov 18", sep=""),
+      paste("# permanent effect"),
+      parameters[(numberOfEffectsPosition + 1):(numberOfEffectsPosition + 1)],
+      paste("# total inbreeding"),
+      paste("19         1 cov"),
+      parameters[(numberOfEffectsPosition + 2):(numberOfEffectsPosition + 11)],
+      paste("", round(covIDLAdd, digits = 2), idlVar, sep = "    "),
+      parameters[(numberOfEffectsPosition + 12):length(parameters)]
     )
-    
-    ReplacingValuesRenf90(input_file, output_file, replacements)
-    
-    # this function is to add lines
-    updateRenf90Par <- function(inputFile, outputFile) {
-      # Read the existing parameter file
-      parameters <- readLines(inputFile)
-      
-      # Find the position to add the NUMBER_OF_EFFECTS information
-      numberOfEffectsPosition <- grep("NUMBER_OF_EFFECTS", parameters) + 1
-      
-      # Add the  information
-      updatedParameters <- c(
-        parameters[1:numberOfEffectsPosition],
-        paste("10"),
-        parameters[(numberOfEffectsPosition + 1):(numberOfEffectsPosition + 10)],
-        paste("# cov1 nested in ancestor1 (in column 14)"),
-        paste("13         0 cov 14"),
-        paste("15         0 cov 16"),
-        paste("17     ", nrow(pedigree), "cov 18", sep=""),
-        paste("# permanent effect"),
-        parameters[(numberOfEffectsPosition + 11):(numberOfEffectsPosition + 11)],
-        paste("# total inbreeding"),
-        paste("19         1 cov"),
-        parameters[(numberOfEffectsPosition + 12):(numberOfEffectsPosition + 21)],
-        paste("", round(covIDLAdd, digits = 2), idlVar, sep = "    "),
-        parameters[(numberOfEffectsPosition + 22):length(parameters)]
-      )
-      # Write the updated parameter file
-      writeLines(updatedParameters, outputFile)
-    }
-    
-    
-    # Example usage
-    inputFile <- "updated_renf90.par"
-    outputFile <- "renf90.par.idl"
-    
-    updateRenf90Par(inputFile, outputFile)
-    
+    # Write the updated parameter file
+    writeLines(updatedParameters, outputFile)
+  }
+  
+  
+  # file usage
+  inputFile <- "updated_renf90.par"
+  outputFile <- "renf90.par.idl"
+  
+  updateRenf90Par(inputFile, outputFile)
+  
   
   # ---- Read in the solutions ----
   blup_sol = read_table(file = "solutions.orig",
-    col_types = cols(
-      .default = col_double(),
-      trait = col_integer(),
-      effect = col_integer(),
-      level = col_integer(),
-      original_id = col_character(),
-      solution = col_double()))
-
+                        col_types = cols(
+                          .default = col_double(),
+                          trait = col_integer(),
+                          effect = col_integer(),
+                          level = col_integer(),
+                          original_id = col_character(),
+                          solution = col_double()))
+  
   # ---- Extracting EBV from the file ----
   ebv_ind = blup_sol %>%
     filter(effect == 5) %>%            # Change effect number to your animal effect number
