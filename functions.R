@@ -344,12 +344,15 @@ estimateBreedingValues = function(pedigree, database,
       paste("19         1 cov"),
       parameters[(numberOfEffectsPosition + 2):(numberOfEffectsPosition + 11)],
       paste("", round(covIDLAdd, digits = 2), idlVar, sep = "    "),
-      parameters[(numberOfEffectsPosition + 12):length(parameters)]
+      parameters[(numberOfEffectsPosition + 12):(numberOfEffectsPosition + 19)],
+      paste("OPTION method VCE"),
+      paste("OPTION AIREML"),
+      paste("OPTION msg_FSPAK 10"),
+      parameters[(numberOfEffectsPosition + 20):length(parameters)]
     )
     # Write the updated parameter file
     writeLines(updatedParameters, outputFile)
   }
-  
   
   # file usage
   inputFile <- "updated_renf90.par"
