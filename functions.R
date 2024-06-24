@@ -180,6 +180,43 @@ recordData = function(database = NULL, pop = NULL, year, lactation = NA, label =
   }
 }
 
+# function to merge the partial inbreeeding coefficients files into one
+mergePartialInbreedingFiles <- function() {
+  # Create the AWK command to concatenate files, preserving the header
+  awkCommand <- 'awk \'NR == 1 {if (FNR == 1) print; next} FNR > 1 {print $0}\' PartialInbreeding.txt* > mergedPartialInbreeding.txt'
+  
+  # Print the awk command for inspection
+  print(awkCommand)
+  
+  # Execute the AWK command using system
+  result <- system(awkCommand, intern = TRUE)
+  
+  # Print the result to understand what happened
+  print(result)
+}
+
+# # Functions to update BLUPF90 parameter file with the new one including the IDL
+# this function is to replace certain values and lines
+ReplacingValuesRenf90 <- function(input_file, output_file, replacements) {
+  # Read the existing parameter file
+  parameters <- readLines(input_file)
+  
+  # Replace each old line with the corresponding new line
+  for (replacement in replacements) {
+    old_line <- replacement$old_line
+    new_line <- replacement$new_line
+    
+    # Find the index of the line to be replaced
+    line_to_replace_index <- which(parameters == old_line)
+    
+    # Replace the line with the new content
+    parameters[line_to_replace_index] <- new_line
+  }
+  
+  # Write the updated parameter file
+  writeLines(parameters, output_file)
+}
+
 estimateBreedingValues = function(pedigree, database,
                                   trait = 1, na = -999, vars,
                                   removeFromEvaluation = NULL,
@@ -211,7 +248,7 @@ estimateBreedingValues = function(pedigree, database,
   }
   fwrite(x = pedigree, file = "pedigree.txt", quote = FALSE,
          row.names = FALSE, col.names = FALSE, sep = " ")
-  # rm(pedigree)
+  rm(pedigree)
   
   # ---- Prepare phenotype file ----
   sel = rowSums(!is.na(database$Pheno[, trait, drop = FALSE])) > 0
@@ -282,10 +319,257 @@ estimateBreedingValues = function(pedigree, database,
   sink()
   
   # ---- Run the command ----
-  system(command = "echo renum.par | renumf90 | tee renum.log")
-  system(command = "echo renf90.par | blupf90+ | tee blup.log")
-  # Functions to update BLUPF90 parameter file with the new one including the IDL
+  system(command = "echo renum.par | /save/user/alegarra/blupf90/bin/renumf90 | tee renum.log")
+  system("/work/user/santonios/santonios/santonios/part3/simulation/programs/include_F.awk renf90.inb renf90.dat > renf90.dat.inb")
+  # Functions to update BLUPF90 parameter file with the new one including the inbreeding
+  # this function is to replace certain values and lines
+  input_file <- "renf90.par"
+  output_file <- "updated_renf90.par.inb"
   
+  # Define replacements as a list of old and new lines
+  replacements <- list(
+    list(old_line = " renf90.dat", new_line = " renf90.dat.inb"),
+    list(old_line = "           6", new_line = "           7"),
+    list(old_line = "RANDOM_RESIDUAL VALUES", new_line = c(" 11  1  cov\n RANDOM_RESIDUAL VALUES"))
+    # Add more pairs of old and new lines as needed
+  )
+  
+  ReplacingValuesRenf90(input_file, output_file, replacements)
+  
+  system(command = "echo renf90.par.inb | /save/user/alegarra/blupf90/bin/blupf90+ | tee blup.log")
+  
+  # ---- Read in the solutions ----
+  blup_sol = read_table(file = "solutions.orig",
+                        col_types = cols(
+                          .default = col_double(),
+                          trait = col_integer(),
+                          effect = col_integer(),
+                          level = col_integer(),
+                          original_id = col_character(),
+                          solution = col_double()))
+  
+  # ---- Extracting EBV from the file ----
+  ebv_ind = blup_sol %>%
+    filter(effect == 5) %>%            # Change effect number to your animal effect number
+    select("original_id", "solution")
+  colnames(ebv_ind) = c("IId", "EBV")
+  return(ebv_ind)
+}
+
+# function to merge the partial inbreeeding coefficients files into one
+mergePartialInbreedingFiles <- function() {
+  # Create the AWK command to concatenate files, preserving the header
+  awkCommand <- 'awk \'NR == 1 {if (FNR == 1) print; next} FNR > 1 {print $0}\' PartialInbreeding.txt* > mergedPartialInbreeding.txt'
+  
+  # Print the awk command for inspection
+  print(awkCommand)
+  
+  # Execute the AWK command using system
+  result <- system(awkCommand, intern = TRUE)
+  
+  # Print the result to understand what happened
+  print(result)
+}
+
+ReplacingValuesRenf90 <- function(input_file, output_file, replacements) {
+  # Read the existing parameter file
+  parameters <- readLines(input_file)
+  
+  # Replace each old line with the corresponding new line
+  for (replacement in replacements) {
+    old_line <- replacement$old_line
+    new_line <- replacement$new_line
+    
+    # Find the index of the line to be replaced
+    line_to_replace_index <- which(parameters == old_line)
+    
+    # Replace the line with the new content
+    parameters[line_to_replace_index] <- new_line
+  }
+  
+  # Write the updated parameter file
+  writeLines(parameters, output_file)
+}
+
+
+# function to estimate EBV and IDL
+estimateBV_IDL = function(pedigree, database,
+                          trait = 1, na = -999, vars,
+                          removeFromEvaluation = NULL,
+                          inbLoadModel = FALSE) {
+  # Estimate breeding values and IDL with external software - here we use blupf90.
+  # pedigree SP$pedigree object from AlphaSimR
+  # database list
+  #   * General data.table with columns IId, Year, Herd, HerdYear
+  #   * Pheno matrix with row.names equal to IId
+  #   * Gv matrix with row.names equal to IId
+  #   * Ebv matrix with row.names equal to IId
+  #   * IDL matrix with row.names equal to IId
+  # trait numeric, indicating which traits to analyse (one or more values,
+  #   so, with two traits we have options: trait = 1, trait = 2, or trait = 1:2
+  # na value used to denote missing value, say -999
+  # vars list, variance components VarPE, VarA, VarIL, and VarE - vectors or matrices
+  # removeFromEvaluation logical, vector of length equal to nrow(pedigree)
+  #   indicating which animals should be removed from the evaluation (to speed
+  #   things up)
+  # inbLoadModel logical, are we running the standard model or model with
+  #   inbreeding depression load (not yet used)
+  
+  # ---- Prepare pedigree file ----
+  pedigree = data.table(IId = rownames(pedigree),
+                        FId = pedigree[, "father"],
+                        MId = pedigree[, "mother"])
+  # Remove young males that will never have any progeny
+  if (!is.null(removeFromEvaluation)) {
+    pedigree = pedigree[!removeFromEvaluation, ]
+  }
+  fwrite(x = pedigree, file = "pedigree.txt", quote = FALSE,
+         row.names = FALSE, col.names = FALSE, sep = " ")
+  # rm(pedigree)
+  
+  # Add a column for the year
+  pedigree$Year <- year
+  # Create an empty list to store pedigrees
+  pedigree_list <- list()
+  # Save the simulated pedigree to the list
+  pedigree_list[[paste0("pedigree", year)]] <- pedigree
+  
+  # View the list of pedigrees
+  print(pedigree_list)
+  
+  # Save each pedigree in the list as a separate variable in the R environment
+  #  I wma doing this to save the number of animal in the current year that will 
+  # be saved as nrowCurrentPedigree and used in the year + 1 as number of animal in the previous year 
+  for (i in 1:length(pedigree_list)) {
+    assign(names(pedigree_list)[i], pedigree_list[[i]])
+  }
+  
+  currentPedigree <- pedigree_list[[paste0("pedigree", year)]]
+  
+  # ---- Prepare phenotype file ----
+  sel = rowSums(!is.na(database$Pheno[, trait, drop = FALSE])) > 0
+  tmp = database$Pheno[sel, , drop = FALSE]
+  phenotypes = data.table(IIdPop = row.names(tmp))
+  phenotypes = cbind(phenotypes, tmp)
+  colTrait = paste0("Pheno", trait)
+  colnames(phenotypes) = c("IIdPop", colTrait)
+  phenotypes = merge(x = phenotypes,
+                     y = database$General[, c("IIdPop", "IId", "Year", "Herd", "Lactation")])
+  sel = c("IId", "Year", "Herd", "Lactation", colTrait)
+  fwrite(x = phenotypes[, ..sel], file = "phenotype.txt", quote = FALSE,
+         row.names = FALSE, col.names = FALSE, sep = " ")
+  rm(phenotypes)
+  
+  # ---- Prepare parameter file ----
+  sink(file = "renum.par", type = "output")
+  cat("# Renumf90 parameter file\n",
+      "# herd-year\n",
+      "COMBINE 6 2 3\n",
+      "DATAFILE\n",
+      "phenotype.txt\n",
+      "TRAITS\n",
+      "# milk yield\n",
+      "5\n",
+      "FIELDS_PASSED TO OUTPUT\n",
+      "# id herd year lactation\n",
+      "1 2 3 4\n",
+      "WEIGHT(S)\n",
+      "\n",
+      "RESIDUAL_VARIANCE\n",
+      vars$varE, "\n",
+      "# herd\n",
+      "EFFECT\n",
+      "3 cross alpha\n",
+      "# year\n",
+      "EFFECT\n",
+      "2 cross alpha\n",
+      "# lactation\n",
+      "EFFECT\n",
+      "4 cross alpha\n",
+      "# herd-year\n",
+      "EFFECT\n",
+      "6 cross alpha\n",
+      "#animal\n",
+      "EFFECT\n",
+      "1 cross alpha\n",
+      "RANDOM\n",
+      "animal\n",
+      "OPTIONAL\n",
+      "pe\n",
+      "FILE\n",
+      "pedigree.txt\n",
+      "FILE_POS\n",
+      "1 2 3 0 0\n",
+      "PED_DEPTH\n",
+      "0\n",
+      "INBREEDING\n",
+      "pedigree.txt\n",
+      "(CO)VARIANCES\n",
+      vars$varA, "\n",
+      "(CO)VARIANCES_PE\n",
+      vars$varPE, "\n",
+      #"OPTION origID\n",
+      #"OPTION saveAinv\n",
+      #"OPTION saveAinvOrig\n",
+      sep = "")
+  sink()
+  
+  # ---- Run the command ----
+  system(command = "echo renum.par | /save/user/alegarra/blupf90/bin/renumf90 | tee renum.log")
+  system(command = "echo renf90.par | /work/user/santonios/santonios/santonios/part3/simulation/sim_4scenarios/blupf90+ | tee blup.log")
+  
+  # We order and renumber the pedigree file with `renum_order_gen.awk `this program puts the parents preceded the progeny to calculate the partial inbreeding coefficients
+  system("/work/user/santonios/santonios/santonios/part3/simulation/programs/renum_order_gen.awk pedigree.txt > pedigreeOrder.txt")
+  # Calculating the partial inbreeding coefficient
+  ## Preparing the pedigree
+  system("awk '{print $1,$2,$3}' pedigreeOrder.txt > geneal_simulation.txt")
+  if (year == 11) {
+    system(sprintf("/work/user/santonios/santonios/santonios/part3/simulation/programs/getPartialInbreeding geneal_simulation.txt 1 %d", nrow(currentPedigree)))
+  } else {
+    system(sprintf("/work/user/santonios/santonios/santonios/part3/simulation/programs/getPartialInbreeding geneal_simulation.txt %d %d", nrowCurrentPedigree + 1, nrow(currentPedigree)))
+  }
+  # Call the function to merge PartialInbreeding files
+  mergePartialInbreedingFiles()
+  # ---- running julia script 
+  sink(file = "julia_script.sh", type = "output")
+  # Create an absolute path to the Julia script
+  cat("cp /work/user/santonios/santonios/santonios/part3/simulation/programs/TtimesImP.jl .\n",
+      "module load devel/Julia/1.9.3 \n",
+      "julia TtimesImP.jl geneal_simulation.txt  mergedPartialInbreeding.txt 0.01\n")
+  sink()
+  system("chmod +x julia_script.sh")
+  system("./julia_script.sh")
+  
+  
+  # running the script for Checking and changing IDs
+  sink(file = "awk_script.sh", type = "output")
+  cat("awk '{print $10, $1}' renadd05.ped > id_orig_renum\n",
+      "awk '{print $4, $1}' pedigreeOrder.txt > id_orig_partial\n",
+      "sort -k1 id_orig_renum -o id_orig_renum_ordered\n",
+      "sort -k1 id_orig_partial -o id_orig_partial_ordered\n",
+      #"diff -y --suppress-common-lines <( awk '{print $1}' id_orig_renum_ordered) <( awk '{print $1}' id_orig_partial_ordered )\n",
+      "awk '{print $1}' id_orig_renum_ordered > temp1 \n",
+      "awk '{print $1}' id_orig_partial_ordered > temp2 \n",
+      "diff -y --suppress-common-lines temp1 temp2 \n",
+      "paste id_orig_renum_ordered id_orig_partial_ordered | expand  | awk '{print $1,$2,$4}' > id_orig_renum_partial\n",
+      # The file `id_orig_renum_partial` include all the identifications 
+      # The program `change_id.awk` takes the first file `id_orig_renum_partial` and takes a second  file `K.txt` with
+      # id_partial, number of partial F>0, number of partial F>minimumValue (say n), and then for 1 to n the pair (value, ancestor) 
+      # (**for simulation I put the maximum number of ancestors is 3**) and creates on output `K_id_renum.txt` with the id_renum
+      "/work/user/santonios/santonios/santonios/part3/simulation/programs/change_id.awk id_orig_renum_partial K.txt > K_id_renum.txt\n",
+      "R CMD BATCH /work/user/santonios/santonios/santonios/part3/simulation/programs/Datafile_withFpartial.R\n",
+      # To merge the inbreeding coming from `renf90.inb`in the `renf90.dat.new` file by their id_renum, we use `include_F.awk`. 
+      # The file `renf90.inb` has 3 columns: id_orig, F and id_renum
+      "/work/user/santonios/santonios/santonios/part3/simulation/programs/include_F.awk renf90.inb renf90.dat.new > renf90.dat.F\n"
+      # The file **renf90.dat.F** has 19 columns
+      # Ymilk, EF1, EF2, EF3, EF4, id_renum, id_orig, campagne, cheptel, lactation_number, n of partial F>0, n of partial F>0.01, value1, 
+      # ancestor1, value2, ancestor2, value3 ancestor3, total F
+  )
+  sink()
+  system("chmod +x awk_script.sh")
+  system("./awk_script.sh")
+  
+  # Functions to update BLUPF90 parameter file with the new one including the IDL
   # this function is to replace certain values and lines
   ReplacingValuesRenf90 <- function(input_file, output_file, replacements) {
     # Read the existing parameter file
@@ -314,11 +598,13 @@ estimateBreedingValues = function(pedigree, database,
   # Define replacements as a list of old and new lines
   replacements <- list(
     list(old_line = " renf90.dat", new_line = " renf90.dat.F"),
-    list(old_line = "           6", new_line = "           10"),
+    list(old_line = "           6", new_line = "           14"),
     list(old_line = "     5", new_line = "     5  6"),
-    list(old_line = "   600.00    ", new_line =paste(round(addVar, digits = 2), round(covIDLAdd, digits = 2))),
-    list(old_line = "     6", new_line = "     9")
-    # Add more pairs of old and new lines as needed
+    #  list(old_line =paste("   ", round(addVar, digits = 2),"    "), new_line =paste(round(addVar, digits = 2), round(covIDLAdd, digits = 2))),
+    list(old_line ="   1000.0    ", new_line =paste(round(addVar, digits = 2), round(covIDLAdd, digits = 2))),
+    list(old_line = "     6", new_line = "     13")
+    #list(old_line = "OPTION origID", new_line = "#OPTION origID"),
+    #list(old_line = "OPTION saveAinvOrig", new_line = "#OPTION saveAinvOrig")
   )
   
   ReplacingValuesRenf90(input_file, output_file, replacements)
@@ -337,18 +623,27 @@ estimateBreedingValues = function(pedigree, database,
       paste("# cov1 nested in ancestor1 (in column 14)"),
       paste("13         0 cov 14"),
       paste("15         0 cov 16"),
-      paste("17     ", nrow(pedigree), "cov 18", sep=""),
+      paste("17         0 cov 18"),
+      paste("19         0 cov 20"),
+      paste("21         0 cov 22"),
+      paste("23         0 cov 24"),
+      paste("25     ", nrow(pedigree), " cov 26", sep=""),
       paste("# permanent effect"),
       parameters[(numberOfEffectsPosition + 1):(numberOfEffectsPosition + 1)],
       paste("# total inbreeding"),
-      paste("19         1 cov"),
+      paste("27         1 cov"),
       parameters[(numberOfEffectsPosition + 2):(numberOfEffectsPosition + 11)],
       paste("", round(covIDLAdd, digits = 2), idlVar, sep = "    "),
       parameters[(numberOfEffectsPosition + 12):(numberOfEffectsPosition + 19)],
-      paste("OPTION method VCE"),
-      paste("OPTION AIREML"),
-      paste("OPTION msg_FSPAK 10"),
-      parameters[(numberOfEffectsPosition + 20):length(parameters)]
+      # paste("OPTION method VCE"),
+      #paste("OPTION AIREML"),
+      # paste("OPTION msg_FSPAK 10"),
+      paste("OPTION EM-REML -2000"),
+      # paste("OPTION maxrounds 1"),
+      paste("OPTION use_yams"),
+      paste("OPTION sol se")#,
+      # paste("OPTION maxrounds 0"),
+      # parameters[(numberOfEffectsPosition + 20):length(parameters)]
     )
     # Write the updated parameter file
     writeLines(updatedParameters, outputFile)
@@ -359,24 +654,109 @@ estimateBreedingValues = function(pedigree, database,
   outputFile <- "renf90.par.idl"
   
   updateRenf90Par(inputFile, outputFile)
+  system(command = "echo renf90.par.idl | /work/user/santonios/santonios/santonios/part3/simulation/sim_4scenarios/blupf90+ | tee blup.log")
   
-  
+  # this one i need to put it after running the fortran program and after merging the partial.txt because it will be used the next year (year+1) to 
+  # determine the number of individuals in the pedigree of this year (year) that is considered previous year 
+  assign("nrowCurrentPedigree", nrow(currentPedigree), envir = .GlobalEnv)
   # ---- Read in the solutions ----
-  blup_sol = read_table(file = "solutions.orig",
-                        col_types = cols(
-                          .default = col_double(),
-                          trait = col_integer(),
-                          effect = col_integer(),
-                          level = col_integer(),
-                          original_id = col_character(),
-                          solution = col_double()))
-  
+  if (FALSE) {
+    blup_sol = read_table(file = "solutions",
+                          col_types = cols(
+                            .default = col_double(),
+                            trait = col_integer(),
+                            effect = col_integer(),
+                            level = col_integer(),
+                            #original_id = col_character(),
+                            solution = col_double()))
+  }
+  blup_sol = read.table(file = "solutions",skip=1)
   # ---- Extracting EBV from the file ----
   ebv_ind = blup_sol %>%
-    filter(effect == 5) %>%            # Change effect number to your animal effect number
-    select("original_id", "solution")
-  colnames(ebv_ind) = c("IId", "EBV")
-  return(ebv_ind)
+    filter(V2 == 5 ) %>%            # Change effect number to your animal effect number
+    select(id=V3, EBV=V4)
+  # colnames(ebv_ind) = c("id", "EBV")
+  # ---- Extracting IDL from the file ----
+  idl_ind = blup_sol %>%
+    filter(V2 == 12 ) %>%            # Change effect number to your animal effect number
+    select(id=V3, IDL=V4)
+  #colnames(idl_ind) = c("id", "IDL")
+  # ---- making the selection index = EBV + IDL from the file ----
+  # ebv_idl_ind <- inner_join(ebv_ind, idl_ind, by = "id") %>%
+  #   transmute(id = id, EBV_IDL = EBV + 0.01*IDL, EBV, IDL)
+  if ("scenario" %in% args) {
+    scenario <- args[grep("^scenario$", args) + 1]
+    
+    if (scenario == "idl" || scenario == "idl1" || scenario == "idl2" ) { 
+      if (scenario == "idl1") {
+        ebv_idl_ind <- inner_join(ebv_ind, idl_ind, by = "id") %>%
+          transmute(id = id, EBV_IDL = EBV + 0.1 * IDL, EBV, IDL)
+      }
+      else if (scenario == "idl2") {
+        ebv_idl_ind <- inner_join(ebv_ind, idl_ind, by = "id") %>%
+          transmute(id = id, EBV_IDL = EBV + 0.01 * IDL, EBV, IDL)
+      }
+      else if (scenario == "idl") {
+        ebv_idl_ind <- inner_join(ebv_ind, idl_ind, by = "id") %>%
+          transmute(id = id, EBV_IDL = 0.1 * IDL, EBV, IDL)
+      }
+      else {
+        # Handle cases where scenario does not match any of the specified values
+        # print a warning 
+        print("Unknown scenario")
+      }
+      
+      ebv_idl_ind$year = year
+      ebvPlusidl_ind <- ebv_idl_ind %>% select(id, EBV_IDL, year)
+      fwrite(x = ebv_idl_ind, file = "EBV_IDL_index.txt", quote = FALSE, row.names = FALSE,
+             col.names = FALSE, sep = " ", append = TRUE)
+      fwrite(x = ebvPlusidl_ind, file = "EBVPlusIDL_index.txt", quote = FALSE,
+             row.names = FALSE, col.names = FALSE, sep = " ", append = FALSE)
+      sink(file = "mergeid_renu_orig.sh", type = "output")
+      cat('awk \'{print $1, $10}\' renadd05.ped > id_renum_orig\n',
+          'awk \'{print $0 | "sort -n -k1"}\' id_renum_orig > sorted_id_renum_orig.txt\n',
+          'paste EBVPlusIDL_index.txt sorted_id_renum_orig.txt | expand | awk \'{print $1,$2,$5,$3}\' > idrenum_ebvIdl_orig\n')
+      sink()
+      system("chmod +x mergeid_renu_orig.sh")
+      system("./mergeid_renu_orig.sh")
+      
+      id_ebv_idl <- read.table("idrenum_ebvIdl_orig", header=FALSE)
+      
+      id_ebv_idl_year <- id_ebv_idl
+      id_ebv_idl_year$year = year
+      fwrite(x = id_ebv_idl_year, file = "idrenum_ebvIdl_orig_year", quote = FALSE, row.names = FALSE,
+             col.names = FALSE, sep = " ", append = TRUE)
+      
+      id_ebv_idl <- id_ebv_idl %>% select(c("V3","V2"))
+      colnames(id_ebv_idl) = c("IId", "EBV")
+      return(id_ebv_idl)
+    }
+    else if (scenario == "MA"){
+      ebv_ind$year = year
+      fwrite(x = ebv_ind, file = "EBV_ind_years.txt", quote = FALSE, row.names = FALSE,
+             col.names = FALSE, sep = " ", append = TRUE)
+      fwrite(x = ebv_ind, file = "EBV_ind_LastYear.txt", quote = FALSE,
+             row.names = FALSE, col.names = FALSE, sep = " ", append = FALSE)
+      sink(file = "mergeid_renu_orig.sh", type = "output")
+      cat('awk \'{print $1, $10}\' renadd05.ped > id_renum_orig\n',
+          'awk \'{print $0 | "sort -n -k1"}\' id_renum_orig > sorted_id_renum_orig.txt\n',
+          'paste EBV_ind_LastYear.txt sorted_id_renum_orig.txt | expand | awk \'{print $1,$2,$5,$3}\' > idrenum_ebv_orig\n')
+      sink()
+      system("chmod +x mergeid_renu_orig.sh")
+      system("./mergeid_renu_orig.sh")
+      
+      id_ebv <- read.table("idrenum_ebv_orig", header=FALSE)
+      
+      id_ebv_year <- id_ebv
+      id_ebv_year$year = year
+      fwrite(x = id_ebv_year, file = "idrenum_ebv_orig_year", quote = FALSE, row.names = FALSE,
+             col.names = FALSE, sep = " ", append = TRUE)
+      
+      id_ebv <- id_ebv %>% select(c("V3","V2"))
+      colnames(id_ebv) = c("IId", "EBV")
+      return(id_ebv)
+    }
+  }
 }
 
 setEbv = function(pop, ebv, trait = 1) {
