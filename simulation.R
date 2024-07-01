@@ -926,9 +926,9 @@ if (burnin) {
     # 
     # 
     damsOfSiresLact4 = selectInd(damsOfSiresLact3, nInd = nDamsOfSiresLact4, use = use) # damsOfSiresLact4 are 4 years old here
-    damsOfSiresLact3 = selectInd(damsOfSiresLact2, nInd = nDamsOfSiresLact1, use = use) # damsOfSiresLact3 are 3 years old here
-    damsOfSiresLact2 = selectInd(damsOfSiresLact1, nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact2 are 2 years old here
-    damsOfSiresLact1 = selectInd(lambs[selAILambs], nInd = nDamsOfSiresLact2, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
+    damsOfSiresLact3 = selectInd(damsOfSiresLact2, nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact3 are 3 years old here
+    damsOfSiresLact2 = selectInd(damsOfSiresLact1, nInd = nDamsOfSiresLact2, use = use) # damsOfSiresLact2 are 2 years old here
+    damsOfSiresLact1 = selectInd(lambs[selAILambs], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
     
     
     # Note that damsOfSires are in reality selected only from AI sires only, hence
