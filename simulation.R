@@ -51,7 +51,7 @@ if (burninOrScenario == "burnin") {
 }
 scenarios = !burnin
 
-# Argument 3: [std|idl|idl1|idl2|MA]
+# Argument 3: [std|idl|idl1|idl2|MA|EFI]
 if (burnin) {
   scenario = NA
 } else {
@@ -59,7 +59,7 @@ if (burnin) {
     stop("You must provide at least 3 arguments when running scenarios!")
   }
   scenario = args[3]
-  if (!scenario %in% c("std", "MA", "idl","idl1","idl2" )) {
+  if (!scenario %in% c("std", "MA", "idl","idl1","idl2","EFI" )) {
     stop("Argument 3 must be either std, MA, or idl or ,idl1, idl2 !")
   }
 }
@@ -244,7 +244,7 @@ domVar              = addVar * 0.1                                              
 fullInbreedDepress  = 70                                                           # depression with complete inbreeding
 meanDD              = 0.46                                                         # dominance parameters - see use of altAddTraitAD() below
 varDD               = 0.10                                                         # dominance parameters - see use of altAddTraitAD() below
-idlVar              = 9418.8 * varScale
+idlVar              = 12923.0 * varScale
 corrIDLAdd          = -0.1
 covIDLAdd           = corrIDLAdd*(addVar*idlVar)^0.5
 # TODO: how do we get this? Estimate from the data?
@@ -518,21 +518,21 @@ if (burnin) {
   damsOfSiresLact4 = fillInMisc(pop = damsOfSiresLact4, year = startYear - 4,
                                 herds = herds, permEnvVar = permVar)
   # ... in the 3rd lactation
-  damsOfSiresLact3 = randCross(basePop, nCrosses = nDamsOfSiresLact1)
+  damsOfSiresLact3 = randCross(basePop, nCrosses = nDamsOfSiresLact3)
   damsOfSiresLact3@sex[] = "F"
   damsOfSiresLact3@father[] = "0"
   damsOfSiresLact3@mother[] = "0"
   damsOfSiresLact3 = fillInMisc(pop = damsOfSiresLact3, year = startYear - 3,
                                 herds = herds, permEnvVar = permVar)
   # ... in the 2nd lactation
-  damsOfSiresLact2 = randCross(basePop, nCrosses = nDamsOfSiresLact3)
+  damsOfSiresLact2 = randCross(basePop, nCrosses = nDamsOfSiresLact2)
   damsOfSiresLact2@sex[] = "F"
   damsOfSiresLact2@father[] = "0"
   damsOfSiresLact2@mother[] = "0"
   damsOfSiresLact2 = fillInMisc(pop = damsOfSiresLact2, year = startYear - 2,
                                 herds = herds, permEnvVar = permVar)
   # ... in the 1st lactation
-  damsOfSiresLact1 = randCross(basePop, nCrosses =  nDamsOfSiresLact2)
+  damsOfSiresLact1 = randCross(basePop, nCrosses =  nDamsOfSiresLact1)
   damsOfSiresLact1@sex[] = "F"
   damsOfSiresLact1@father[] = "0"
   damsOfSiresLact1@mother[] = "0"
@@ -918,13 +918,7 @@ if (burnin) {
     ewesLact3 = c(damsOfDamsLact3, damsOfSiresLact3)
     ewesLact2 = c(damsOfDamsLact2, damsOfSiresLact2)
     ewesLact1 = c(damsOfDamsLact1, damsOfSiresLact1)
-    
-    # damsOfSiresLact4 = selectInd(ewesLact3, nInd = nDamsOfSiresLact4, use = use) # damsOfSiresLact4 are 4 years old here
-    # damsOfSiresLact3 = selectInd(ewesLact2[selewesLac3], nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact3 are 3 years old here
-    # damsOfSiresLact2 = selectInd(ewesLact1[selewesLac2], nInd = nDamsOfSiresLact2, use = use) # damsOfSiresLact2 are 2 years old here
-    # damsOfSiresLact1 = selectInd(lambs[selAILambs], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
-    # 
-    # 
+   
     damsOfSiresLact4 = selectInd(damsOfSiresLact3, nInd = nDamsOfSiresLact4, use = use) # damsOfSiresLact4 are 4 years old here
     damsOfSiresLact3 = selectInd(damsOfSiresLact2, nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact3 are 3 years old here
     damsOfSiresLact2 = selectInd(damsOfSiresLact1, nInd = nDamsOfSiresLact2, use = use) # damsOfSiresLact2 are 2 years old here
@@ -1159,7 +1153,7 @@ if (scenarios) {
     if ("scenario" %in% args) {
       scenario <- args[grep("^scenario$", args) + 1]
       
-      if (scenario == "std") {
+      if (scenario == "std"  || scenario == "EFI") {
         variances = list(varPE = permVar,
                          varA  = addVar,
                          varE  = resVar)
@@ -1249,10 +1243,34 @@ if (scenarios) {
     inbreeding$year = year
     write.table(x = inbreeding, file = "inbreeding.txt", append = TRUE, col.names = FALSE)
     
+
+    animal_data = data.frame(year        = year,
+                             id_orig          = database$General$IId,
+                             pop         = database$General$Pop,
+                             YearOfBirth = database$General$YearOfBirth,
+                             EBV_IDL         = database$Ebv,
+                             GV          = database$Gv,
+                             TBV         = database$General$Tbv.Trait1
+    )
+    animal_data = animal_data %>%
+      filter(pop != "AISiresOfSires", pop != "AISiresOfDams" )
+    write.table(x = animal_data, file = "animal_data.txt", append = TRUE, col.names = FALSE)
+
+    animalData = data.frame(year        = year,
+                            id_orig     = c(AISiresOfSires3@id,AISiresOfSires2@id,AISiresOfSires1@id,AISiresOfDams3@id,AISiresOfDams2@id,AISiresOfDams1@id,wtRams2@id,wtRams1@id,NMSires@id,damsOfSiresLact4@id, damsOfSiresLact3@id,damsOfSiresLact2@id,damsOfSiresLact1@id,damsOfDamsLact4@id, damsOfDamsLact3@id,damsOfDamsLact2@id,damsOfDamsLact1@id,lambs@id),
+                            pop         = rep(c("AISiresOfSires3","AISiresOfSires2","AISiresOfSires1","AISiresOfDams3","AISiresOfDams2","AISiresOfDams1","wtRams2","wtRams1","NMSires","damsOfSiresLact4", "damsOfSiresLact3","damsOfSiresLact2","damsOfSiresLact1","damsOfDamsLact4", "damsOfDamsLact3","damsOfDamsLact2","damsOfDamsLact1","lambs"),
+                                              c(AISiresOfSires3@nInd,AISiresOfSires2@nInd,AISiresOfSires1@nInd,AISiresOfDams3@nInd,AISiresOfDams2@nInd,AISiresOfDams1@nInd,wtRams2@nInd,wtRams1@nInd,NMSires@nInd,damsOfSiresLact4@nInd, damsOfSiresLact3@nInd,damsOfSiresLact2@nInd,damsOfSiresLact1@nInd,damsOfDamsLact4@nInd, damsOfDamsLact3@nInd,damsOfDamsLact2@nInd,damsOfDamsLact1@nInd,lambs@nInd)),
+                            EBV_IDL     = c(AISiresOfSires3@ebv,AISiresOfSires2@ebv,AISiresOfSires1@ebv,AISiresOfDams3@ebv,AISiresOfDams2@ebv,AISiresOfDams1@ebv,wtRams2@ebv,wtRams1@ebv,NMSires@ebv,damsOfSiresLact4@ebv, damsOfSiresLact3@ebv,damsOfSiresLact2@ebv,damsOfSiresLact1@ebv,damsOfDamsLact4@ebv, damsOfDamsLact3@ebv,damsOfDamsLact2@ebv,damsOfDamsLact1@ebv,lambs@ebv),
+                            GV          = c(AISiresOfSires3@gv,AISiresOfSires2@gv,AISiresOfSires1@gv,AISiresOfDams3@gv,AISiresOfDams2@gv,AISiresOfDams1@gv,wtRams2@gv,wtRams1@gv,NMSires@gv,damsOfSiresLact4@gv, damsOfSiresLact3@gv,damsOfSiresLact2@gv,damsOfSiresLact1@gv,damsOfDamsLact4@gv, damsOfDamsLact3@gv,damsOfDamsLact2@gv,damsOfDamsLact1@gv,lambs@gv),
+                            TBV         = c(bv(AISiresOfSires3),bv(AISiresOfSires2),bv(AISiresOfSires1),bv(AISiresOfDams3),bv(AISiresOfDams2),bv(AISiresOfDams1),bv(wtRams2),bv(wtRams1),bv(NMSires),bv(damsOfSiresLact4), bv(damsOfSiresLact3),bv(damsOfSiresLact2),bv(damsOfSiresLact1),bv(damsOfDamsLact4), bv(damsOfDamsLact3),bv(damsOfDamsLact2),bv(damsOfDamsLact1),bv(lambs)))
+
+    write.table(x = animalData, file = "animalData.txt", append = TRUE, col.names = FALSE)
+
+
     if ("scenario" %in% args) {
       scenario <- args[grep("^scenario$", args) + 1]
       # saving the solution of each year
-      if (scenario == "std") {
+      if (scenario == "std"  || scenario == "EFI") {
         solution = read.table('solutions.orig', skip=1)
         solution$year = year
         if (!file.exists('solutions.orig.year')) {
@@ -1310,137 +1328,65 @@ if (scenarios) {
       }
     }
     
-    animal_data = data.frame(year        = year,
-                             id          = database$General$IId,
-                             pop         = database$General$Pop,
-                             YearOfBirth = database$General$YearOfBirth,
-                             EBV         = database$Ebv,
-                             GV          = database$Gv,
-                             TBV         = database$General$Tbv.Trait1
-    )
-    animal_data = animal_data %>%
-      filter(pop != "AISiresOfSires", pop != "AISiresOfDams" )
-    write.table(x = animal_data, file = "animal_data.txt", append = TRUE, col.names = FALSE)
+     
     
-    animalData = data.frame(year        = year,
-                            id_orig     = c(AISiresOfSires3@id,AISiresOfSires2@id,AISiresOfSires1@id,AISiresOfDams3@id,AISiresOfDams2@id,AISiresOfDams1@id,wtRams2@id,wtRams1@id,NMSires@id,damsOfSiresLact4@id, damsOfSiresLact3@id,damsOfSiresLact2@id,damsOfSiresLact1@id,damsOfDamsLact4@id, damsOfDamsLact3@id,damsOfDamsLact2@id,damsOfDamsLact1@id,lambs@id),      
-                            pop         = rep(c("AISiresOfSires3","AISiresOfSires2","AISiresOfSires1","AISiresOfDams3","AISiresOfDams2","AISiresOfDams1","wtRams2","wtRams1","NMSires","damsOfSiresLact4", "damsOfSiresLact3","damsOfSiresLact2","damsOfSiresLact1","damsOfDamsLact4", "damsOfDamsLact3","damsOfDamsLact2","damsOfDamsLact1","lambs"), 
-                                              c(AISiresOfSires3@nInd,AISiresOfSires2@nInd,AISiresOfSires1@nInd,AISiresOfDams3@nInd,AISiresOfDams2@nInd,AISiresOfDams1@nInd,wtRams2@nInd,wtRams1@nInd,NMSires@nInd,damsOfSiresLact4@nInd, damsOfSiresLact3@nInd,damsOfSiresLact2@nInd,damsOfSiresLact1@nInd,damsOfDamsLact4@nInd, damsOfDamsLact3@nInd,damsOfDamsLact2@nInd,damsOfDamsLact1@nInd,lambs@nInd)),
-                            EBV_IDL     = c(AISiresOfSires3@ebv,AISiresOfSires2@ebv,AISiresOfSires1@ebv,AISiresOfDams3@ebv,AISiresOfDams2@ebv,AISiresOfDams1@ebv,wtRams2@ebv,wtRams1@ebv,NMSires@ebv,damsOfSiresLact4@ebv, damsOfSiresLact3@ebv,damsOfSiresLact2@ebv,damsOfSiresLact1@ebv,damsOfDamsLact4@ebv, damsOfDamsLact3@ebv,damsOfDamsLact2@ebv,damsOfDamsLact1@ebv,lambs@ebv),
-                            GV          = c(AISiresOfSires3@gv,AISiresOfSires2@gv,AISiresOfSires1@gv,AISiresOfDams3@gv,AISiresOfDams2@gv,AISiresOfDams1@gv,wtRams2@gv,wtRams1@gv,NMSires@gv,damsOfSiresLact4@gv, damsOfSiresLact3@gv,damsOfSiresLact2@gv,damsOfSiresLact1@gv,damsOfDamsLact4@gv, damsOfDamsLact3@gv,damsOfDamsLact2@gv,damsOfDamsLact1@gv,lambs@gv),
-                            TBV         = c(bv(AISiresOfSires3),bv(AISiresOfSires2),bv(AISiresOfSires1),bv(AISiresOfDams3),bv(AISiresOfDams2),bv(AISiresOfDams1),bv(wtRams2),bv(wtRams1),bv(NMSires),bv(damsOfSiresLact4), bv(damsOfSiresLact3),bv(damsOfSiresLact2),bv(damsOfSiresLact1),bv(damsOfDamsLact4), bv(damsOfDamsLact3),bv(damsOfDamsLact2),bv(damsOfDamsLact1),bv(lambs)))
-    
-    write.table(x = animalData, file = "animalData.txt", append = TRUE, col.names = FALSE)
-    
-    
-    # correlationEbvTgv = data.frame(year = year,
-    #                                AISiresOfSires3 = calcAccuracyEbvVsTgv(AISiresOfSires3),
-    #                                AISiresOfSires2 = calcAccuracyEbvVsTgv(AISiresOfSires2),
-    #                                AISiresOfSires1 = calcAccuracyEbvVsTgv(AISiresOfSires1),
-    #                                AISiresOfSires = calcAccuracyEbvVsTgv(AISiresOfSires),
-    #                                AISiresOfDams3 = calcAccuracyEbvVsTgv(AISiresOfDams3),
-    #                                AISiresOfDams2 = calcAccuracyEbvVsTgv(AISiresOfDams2),
-    #                                AISiresOfDams1 = calcAccuracyEbvVsTgv(AISiresOfDams1),
-    #                                AISiresOfDams = calcAccuracyEbvVsTgv(AISiresOfDams),
-    #                                wtRams2 = calcAccuracyEbvVsTgv(wtRams2),
-    #                                wtRams1 = calcAccuracyEbvVsTgv(wtRams1),
-    #                                wtRams = calcAccuracyEbvVsTgv(wtRams),
-    #                                NMSires = calcAccuracyEbvVsTgv(NMSires),
-    #                                damsOfSiresLact4 = calcAccuracyEbvVsTgv(damsOfSiresLact4),
-    #                                damsOfSiresLact3 = calcAccuracyEbvVsTgv(damsOfSiresLact3),
-    #                                damsOfSiresLact2 = calcAccuracyEbvVsTgv(damsOfSiresLact2),
-    #                                damsOfSiresLact1 = calcAccuracyEbvVsTgv(damsOfSiresLact1),
-    #                                damsOfSires = calcAccuracyEbvVsTgv(damsOfSires),
-    #                                damsOfDamsLact4 = calcAccuracyEbvVsTgv(damsOfDamsLact4),
-    #                                damsOfDamsLact3 = calcAccuracyEbvVsTgv(damsOfDamsLact3),
-    #                                damsOfDamsLact2 = calcAccuracyEbvVsTgv(damsOfDamsLact2),
-    #                                damsOfDamsLact1 = calcAccuracyEbvVsTgv(damsOfDamsLact1),
-    #                                damsOfDams = calcAccuracyEbvVsTgv(damsOfDams),
-    #                                lambs = calcAccuracyEbvVsTgv(lambs))
-    # write.table(x = correlationEbvTgv, file = "calcAccuracyEbvVsTgv.txt", append = TRUE, col.names = FALSE)
-    # 
-    # correlationEbvTbv = data.frame(year = year,
-    #                                AISiresOfSires3 = calcAccuracyEbvVsTbv(AISiresOfSires3),
-    #                                AISiresOfSires2 = calcAccuracyEbvVsTbv(AISiresOfSires2),
-    #                                AISiresOfSires1 = calcAccuracyEbvVsTbv(AISiresOfSires1),
-    #                                AISiresOfSires = calcAccuracyEbvVsTbv(AISiresOfSires),
-    #                                AISiresOfDams3 = calcAccuracyEbvVsTbv(AISiresOfDams3),
-    #                                AISiresOfDams2 = calcAccuracyEbvVsTbv(AISiresOfDams2),
-    #                                AISiresOfDams1 = calcAccuracyEbvVsTbv(AISiresOfDams1),
-    #                                AISiresOfDams = calcAccuracyEbvVsTbv(AISiresOfDams),
-    #                                wtRams2 = calcAccuracyEbvVsTbv(wtRams2),
-    #                                wtRams1 = calcAccuracyEbvVsTbv(wtRams1),
-    #                                wtRams = calcAccuracyEbvVsTbv(wtRams),
-    #                                NMSires = calcAccuracyEbvVsTbv(NMSires),
-    #                                males = calcAccuracyEbvVsTbv(males),
-    #                                damsOfSiresLact4 = calcAccuracyEbvVsTbv(damsOfSiresLact4),
-    #                                damsOfSiresLact3 = calcAccuracyEbvVsTbv(damsOfSiresLact3),
-    #                                damsOfSiresLact2 = calcAccuracyEbvVsTbv(damsOfSiresLact2),
-    #                                damsOfSiresLact1 = calcAccuracyEbvVsTbv(damsOfSiresLact1),
-    #                                damsOfSires = calcAccuracyEbvVsTbv(damsOfSires),
-    #                                damsOfDamsLact4 = calcAccuracyEbvVsTbv(damsOfDamsLact4),
-    #                                damsOfDamsLact3 = calcAccuracyEbvVsTbv(damsOfDamsLact3),
-    #                                damsOfDamsLact2 = calcAccuracyEbvVsTbv(damsOfDamsLact2),
-    #                                damsOfDamsLact1 = calcAccuracyEbvVsTbv(damsOfDamsLact1),
-    #                                damsOfDams = calcAccuracyEbvVsTbv(damsOfDams),
-    #                                females = calcAccuracyEbvVsTbv(females),
-    #                                lambs = calcAccuracyEbvVsTbv(lambs))
-    # add = ifelse(year == 1, FALSE, TRUE)
-    write.table(x = correlationEbvTbv, file = "calcAccuracyEbvVsTbv.txt", append = TRUE , col.names = FALSE )
-    
-    # ---- Select rams ----
-    
-    # ---- ...   AI Sires Of Sires----
-    
-    cat("... AI Sire Of Siress", as.character(Sys.time()), "\n")
-    
-    AISiresOfSires3 = AISiresOfSires2 # AISiresOfSires3 are 4.5 years old here
-    AISiresOfSires2 = AISiresOfSires1 # AISiresOfSires2 are 3.5 years old here
-    
-    AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
-                                      use = use, famType = "M")
-    AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
-                                use = use)
-    
-    # ---- ... AI Sire Of Dams ----
-    
-    cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
-    
-    AISiresOfDams3 = AISiresOfDams2 # AISiresOfDams3 are 5.5 years old here
-    AISiresOfDams2 = AISiresOfDams1 # AISiresOfDams2 are 4.5 years old here
-    
-    if (all(wtRams2@father == "0")) {
-      sel = !wtRams2@id %in% AISiresOfSires1@id
-      AISiresOfDams1 = selectInd(pop = wtRams2[sel], nInd = nAISiresOfDams1, # AISiresOfDams1 are 3.5 years old here
-                                 use = use)
-    } else {
-      sel = !wtRams2@id %in% AISiresOfSires1@id
-      AISiresOfDams1 = selectWithinFam(pop = wtRams2[sel], nInd = 2, # AISiresOfDams1 are 3.5 years old here
-                                       use = use, famType = "M")
-      AISiresOfDams1 = selectInd(pop = AISiresOfDams1, nInd = nAISiresOfDams1,
-                                 use = use)
+  if (scenario =="std" || scenario =="EFI" || scenario == "EFI_all") {
+      correlationEbvTgv = data.frame(year = year,
+                                     AISiresOfSires3 = calcAccuracyEbvVsTgv(AISiresOfSires3),
+                                     AISiresOfSires2 = calcAccuracyEbvVsTgv(AISiresOfSires2),
+                                     AISiresOfSires1 = calcAccuracyEbvVsTgv(AISiresOfSires1),
+                                     AISiresOfSires = calcAccuracyEbvVsTgv(AISiresOfSires),
+                                     AISiresOfDams3 = calcAccuracyEbvVsTgv(AISiresOfDams3),
+                                     AISiresOfDams2 = calcAccuracyEbvVsTgv(AISiresOfDams2),
+                                     AISiresOfDams1 = calcAccuracyEbvVsTgv(AISiresOfDams1),
+                                     AISiresOfDams = calcAccuracyEbvVsTgv(AISiresOfDams),
+                                     wtRams2 = calcAccuracyEbvVsTgv(wtRams2),
+                                     wtRams1 = calcAccuracyEbvVsTgv(wtRams1),
+                                     wtRams = calcAccuracyEbvVsTgv(wtRams),
+                                     NMSires = calcAccuracyEbvVsTgv(NMSires),
+                                     damsOfSiresLact4 = calcAccuracyEbvVsTgv(damsOfSiresLact4),
+                                     damsOfSiresLact3 = calcAccuracyEbvVsTgv(damsOfSiresLact3),
+                                     damsOfSiresLact2 = calcAccuracyEbvVsTgv(damsOfSiresLact2),
+                                     damsOfSiresLact1 = calcAccuracyEbvVsTgv(damsOfSiresLact1),
+                                     damsOfSires = calcAccuracyEbvVsTgv(damsOfSires),
+                                     damsOfDamsLact4 = calcAccuracyEbvVsTgv(damsOfDamsLact4),
+                                     damsOfDamsLact3 = calcAccuracyEbvVsTgv(damsOfDamsLact3),
+                                     damsOfDamsLact2 = calcAccuracyEbvVsTgv(damsOfDamsLact2),
+                                     damsOfDamsLact1 = calcAccuracyEbvVsTgv(damsOfDamsLact1),
+                                     damsOfDams = calcAccuracyEbvVsTgv(damsOfDams),
+                                     lambs = calcAccuracyEbvVsTgv(lambs))
+      write.table(x = correlationEbvTgv, file = "calcAccuracyEbvVsTgv.txt", append = TRUE, col.names = FALSE)
+      # 
+      correlationEbvTbv = data.frame(year = year,
+                                     AISiresOfSires3 = calcAccuracyEbvVsTbv(AISiresOfSires3),
+                                     AISiresOfSires2 = calcAccuracyEbvVsTbv(AISiresOfSires2),
+                                     AISiresOfSires1 = calcAccuracyEbvVsTbv(AISiresOfSires1),
+                                     AISiresOfSires = calcAccuracyEbvVsTbv(AISiresOfSires),
+                                     AISiresOfDams3 = calcAccuracyEbvVsTbv(AISiresOfDams3),
+                                     AISiresOfDams2 = calcAccuracyEbvVsTbv(AISiresOfDams2),
+                                     AISiresOfDams1 = calcAccuracyEbvVsTbv(AISiresOfDams1),
+                                     AISiresOfDams = calcAccuracyEbvVsTbv(AISiresOfDams),
+                                     wtRams2 = calcAccuracyEbvVsTbv(wtRams2),
+                                     wtRams1 = calcAccuracyEbvVsTbv(wtRams1),
+                                     wtRams = calcAccuracyEbvVsTbv(wtRams),
+                                     NMSires = calcAccuracyEbvVsTbv(NMSires),
+                                     males = calcAccuracyEbvVsTbv(males),
+                                     damsOfSiresLact4 = calcAccuracyEbvVsTbv(damsOfSiresLact4),
+                                     damsOfSiresLact3 = calcAccuracyEbvVsTbv(damsOfSiresLact3),
+                                     damsOfSiresLact2 = calcAccuracyEbvVsTbv(damsOfSiresLact2),
+                                     damsOfSiresLact1 = calcAccuracyEbvVsTbv(damsOfSiresLact1),
+                                     damsOfSires = calcAccuracyEbvVsTbv(damsOfSires),
+                                     damsOfDamsLact4 = calcAccuracyEbvVsTbv(damsOfDamsLact4),
+                                     damsOfDamsLact3 = calcAccuracyEbvVsTbv(damsOfDamsLact3),
+                                     damsOfDamsLact2 = calcAccuracyEbvVsTbv(damsOfDamsLact2),
+                                     damsOfDamsLact1 = calcAccuracyEbvVsTbv(damsOfDamsLact1),
+                                     damsOfDams = calcAccuracyEbvVsTbv(damsOfDams),
+                                     females = calcAccuracyEbvVsTbv(females),
+                                     lambs = calcAccuracyEbvVsTbv(lambs))
+      # add = ifelse(year == 1, FALSE, TRUE)
+      write.table(x = correlationEbvTbv, file = "calcAccuracyEbvVsTbv.txt", append = TRUE , col.names = FALSE )
     }
-    cat("Select rams\n")
     
-    # ---- ... Selecting males from lambs ----
-    # Note that we select wtRams only from lambs from AI Sire Of Sires (not waiting rams) and Dams Of Sires
-    selWtRams = lambs@father %in% AISiresOfSires@id & lambs@mother %in% damsOfSires@id
-    n = ceiling(nWtRams1 / length(AISiresOfSires@id))
-    wtRams2 = wtRams1
-    wtRams1 = selectWithinFam(pop = lambs[selWtRams], nInd = n,
-                              use = use, famType = "M", sex = "M")
-    wtRams1 = selectInd(pop = wtRams1, nInd = nWtRams1,
-                        use = use)
-    
-    selAILambs = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
-      !lambs@id %in% wtRams1@id
-    NMSires =  selectInd(pop = lambs[selAILambs], nInd = nNMSires,
-                         use = use, famType = "M", sex = "M")
-    
-    
-    AISiresOfSires = c(AISiresOfSires3, AISiresOfSires2, AISiresOfSires1)
-    AISiresOfDams = c(AISiresOfDams3, AISiresOfDams2, AISiresOfDams1)
-    males = c(AISiresOfSires, AISiresOfDams, wtRams1, wtRams2, NMSires)
     # ---- Select ewes ----
     
     cat("Select ewes\n")
@@ -1500,6 +1446,117 @@ if (scenarios) {
     
     damsOfDams = c(damsOfDamsLact4, damsOfDamsLact3, damsOfDamsLact2, damsOfDamsLact1)
     females = c(damsOfSires, damsOfDams)
+    
+    # ---- Select rams ----
+    
+    # ---- ...   AI Sires Of Sires----
+    
+    cat("... AI Sire Of Siress", as.character(Sys.time()), "\n")
+    
+    AISiresOfSires3 = AISiresOfSires2 # AISiresOfSires3 are 4.5 years old here
+    AISiresOfSires2 = AISiresOfSires1 # AISiresOfSires2 are 3.5 years old here
+    
+if ("scenario" %in% args) {
+      scenario <- args[grep("^scenario$", args) + 1]
+      # saving the solution of each year
+
+        if (all(wtRams2@father == "0")) {
+          AISiresOfSires1 = selectInd(pop = wtRams2, nInd = nAISiresOfSires1, # AISiresOfSires1 are 3.5 years old here
+                                      use = use)
+        }
+      else  {
+          if (scenario == "std" || scenario == "idl"|| scenario == "idl1" || scenario == "idl2" || scenario == "MA")  {
+
+
+          AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
+                                            use = use, famType = "M")
+          AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
+                                      use = use)
+        }
+
+      else if (scenario == "EFI_all" || scenario == "EFI"){
+        # -------------------------------------
+        # ---- AI sires of sires selection ----
+        # -------------------------------------
+        # collecting the id of the contemporary dams of sires and of the waiting rams 2
+        dams_of_sire <- data.frame(damsOfSires@iid)
+        wtrams2 <- data.frame(wtRams2@iid)
+        fwrite(dams_of_sire, "dam", col.names = FALSE)
+        fwrite(wtrams2, "sire", col.names = FALSE)
+        # calculating the relationship coefficient between the waiting rams and all the contemporary females
+        system(command = "ifort /save/user/santonios/bin/inbupgf90")
+        system(command = "/save/user/santonios/bin/inbupgf90 --pedfile pedigree.txt --sire_file sire --dam_file dam --nrmcoeff")
+        # reading the results of the inbupgf90, which represent all the possible combinations between the wtrams2 and the dams of sires 
+        # and with their expected future relationship coefficient.
+        nrmcoeff <- read.table('sire_dam.nrmcoeff')
+        colnames(nrmcoeff) <- c('sire', 'dam', 'coan_coef')
+        # summing the expected future relationship coefficient per sire
+        nrmcoeff_sum <- nrmcoeff %>% group_by(sire) %>% summarize(mean_coan=mean(coan_coef))
+
+        wtram2_ebv <- data.frame(sire = wtRams2@iid, ebv = wtRams2@ebv)
+        # merging the ebv
+        nrmcoeff_sum_ebv <- merge(nrmcoeff_sum,wtram2_ebv,by="sire")
+        colnames(nrmcoeff_sum_ebv) <- c('sire', 'mean_coan', 'ebv')
+        # getting the inbreeding depression param (b)
+        sol <- read.table('solutions.orig', skip=1)
+        b <- tail(sol$V5, n=1)
+        # calculating EFI and the adjusted EBV
+        nrmcoeff_ebv_EFI_ebva <- nrmcoeff_sum_ebv%>%transmute(sire, mean_coan, ebv, EFI=mean_coan/2, ebva=ebv + (mean_coan / 2) * b)
+
+        # to select the sires of sires 1 based on their adjusted EBV (ebva)
+        top_10_iid <- nrmcoeff_ebv_EFI_ebva %>%
+          arrange(desc(ebva)) %>%
+          slice_head(n = 10)
+
+        # Find the indices of the individuals that match top_10_iid
+        indices <- which(wtRams2@iid %in% top_10_iid$sire)
+
+        # Subset the individuals using the indices
+        AISiresOfSires1 <- wtRams2[indices]
+      }
+        }
+    }
+
+    # ---- ... AI Sire Of Dams ----
+    
+    cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
+    
+    AISiresOfDams3 = AISiresOfDams2 # AISiresOfDams3 are 5.5 years old here
+    AISiresOfDams2 = AISiresOfDams1 # AISiresOfDams2 are 4.5 years old here
+    
+    if (all(wtRams2@father == "0")) {
+      sel = !wtRams2@id %in% AISiresOfSires1@id
+      AISiresOfDams1 = selectInd(pop = wtRams2[sel], nInd = nAISiresOfDams1, # AISiresOfDams1 are 3.5 years old here
+                                 use = use)
+    } else {
+      sel = !wtRams2@id %in% AISiresOfSires1@id
+      AISiresOfDams1 = selectWithinFam(pop = wtRams2[sel], nInd = 2, # AISiresOfDams1 are 3.5 years old here
+                                       use = use, famType = "M")
+      AISiresOfDams1 = selectInd(pop = AISiresOfDams1, nInd = nAISiresOfDams1,
+                                 use = use)
+    }
+    cat("Select rams\n")
+    
+    # ---- ... Selecting males from lambs ----
+    # Note that we select wtRams only from lambs from AI Sire Of Sires (not waiting rams) and Dams Of Sires
+    selWtRams = lambs@father %in% AISiresOfSires@id & lambs@mother %in% damsOfSires@id
+    n = ceiling(nWtRams1 / length(AISiresOfSires@id))
+    wtRams2 = wtRams1
+    wtRams1 = selectWithinFam(pop = lambs[selWtRams], nInd = n,
+                              use = use, famType = "M", sex = "M")
+    wtRams1 = selectInd(pop = wtRams1, nInd = nWtRams1,
+                        use = use)
+    
+    selAILambs = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
+      !lambs@id %in% wtRams1@id
+    NMSires =  selectInd(pop = lambs[selAILambs], nInd = nNMSires,
+                         use = use, famType = "M", sex = "M")
+    
+    
+    AISiresOfSires = c(AISiresOfSires3, AISiresOfSires2, AISiresOfSires1)
+    AISiresOfDams = c(AISiresOfDams3, AISiresOfDams2, AISiresOfDams1)
+    males = c(AISiresOfSires, AISiresOfDams, wtRams1, wtRams2, NMSires)
+    
     # ---- Generate lambs ----
     
     cat("Generate lambs", as.character(Sys.time()), "\n")
@@ -1507,7 +1564,7 @@ if (scenarios) {
     if ("scenario" %in% args) {
       scenario <- args[grep("^scenario$", args) + 1]
       
-      if (scenario == "idl" || scenario == "idl1" || scenario == "idl2" || scenario == "std") {
+      if (scenario == "idl" || scenario == "idl1" || scenario == "idl2" || scenario == "std"  || scenario == "EFI") {
         for (i in 1:nDamsOfSires) {
           repeat {
             sire <- sample(AISiresOfSires@id, size = 1)
@@ -1519,41 +1576,41 @@ if (scenarios) {
         }
       }
       else if (scenario == "MA"){
-        
-        datafile <- read.table(file="renadd05.ped", col.names = c("id_renum","sire","dam","v4","v5","v6","v7","v8","v9","id_orig"))
+    
+datafile <- read.table(file="renadd05.ped", col.names = c("id_renum","sire","dam","v4","v5","v6","v7","v8","v9","id_orig"))
         # anim_id_pop = data.frame(id_orig     = c(AISiresOfSires3@id,AISiresOfSires2@id,AISiresOfSires1@id,AISiresOfDams3@id,AISiresOfDams2@id,AISiresOfDams1@id,wtRams2@id,wtRams1@id,NMSires@id,damsOfSiresLact4@id, damsOfSiresLact3@id,damsOfSiresLact2@id,damsOfSiresLact1@id,damsOfDamsLact4@id, damsOfDamsLact3@id,damsOfDamsLact2@id,damsOfDamsLact1@id,lambs@id),      
         #                          pop         = rep(c("AISiresOfSires3","AISiresOfSires2","AISiresOfSires1","AISiresOfDams3","AISiresOfDams2","AISiresOfDams1","wtRams2","wtRams1","NMSires","damsOfSiresLact4", "damsOfSiresLact3","damsOfSiresLact2","damsOfSiresLact1","damsOfDamsLact4", "damsOfDamsLact3","damsOfDamsLact2","damsOfDamsLact1","lambs"), 
         #                                            c(AISiresOfSires3@nInd,AISiresOfSires2@nInd,AISiresOfSires1@nInd,AISiresOfDams3@nInd,AISiresOfDams2@nInd,AISiresOfDams1@nInd,wtRams2@nInd,wtRams1@nInd,NMSires@nInd,damsOfSiresLact4@nInd, damsOfSiresLact3@nInd,damsOfSiresLact2@nInd,damsOfSiresLact1@nInd,damsOfDamsLact4@nInd, damsOfDamsLact3@nInd,damsOfDamsLact2@nInd,damsOfDamsLact1@nInd,lambs@nInd))
         #                          )
-        anim_id_pop = data.frame(id_orig     = c(AISiresOfSires3@id,AISiresOfSires2@id,AISiresOfSires1@id,damsOfSiresLact4@id, damsOfSiresLact3@id,damsOfSiresLact2@id,damsOfSiresLact1@id),      
-                                 pop         = rep(c("AISiresOfSires3","AISiresOfSires2","AISiresOfSires1","damsOfSiresLact4", "damsOfSiresLact3","damsOfSiresLact2","damsOfSiresLact1"), 
+        anim_id_pop = data.frame(id_orig     = c(AISiresOfSires3@id,AISiresOfSires2@id,AISiresOfSires1@id,damsOfSiresLact4@id, damsOfSiresLact3@id,damsOfSiresLact2@id,damsOfSiresLact1@id), 
+                                 pop         = rep(c("AISiresOfSires3","AISiresOfSires2","AISiresOfSires1","damsOfSiresLact4", "damsOfSiresLact3","damsOfSiresLact2","damsOfSiresLact1"),
                                                    c(AISiresOfSires3@nInd,AISiresOfSires2@nInd,AISiresOfSires1@nInd,damsOfSiresLact4@nInd, damsOfSiresLact3@nInd,damsOfSiresLact2@nInd,damsOfSiresLact1@nInd))
         )
         dams <- filter(anim_id_pop, pop=="damsOfSiresLact4" |  pop=="damsOfSiresLact3" |  pop=="damsOfSiresLact2" |  pop=="damsOfSiresLact1")
         ds <- damsOfSires@id
         write.table(dams, file = 'dams')
         write.table(ds,file='ds')
-        
+
         datafile$id_renum = as.character(datafile$id_renum)
         datafile$id_orig  = as.character(datafile$id_orig)
         anim_id_pop$id_orig=as.character(anim_id_pop$id_orig)
-        
+
         kfile <- read.table(file="K_id_renum.txt", col.names = c("id_renum","coef1","coef2","value1","anc1","value2","anc2","value3","anc3","value4","anc4","value5","anc5","value6","anc6","value7","anc7"))
         kfile$id_renum = as.character(kfile$id_renum)
         toto <- left_join(datafile,kfile, by = "id_renum") #%>%
         # left_join(., anim_id_pop, by = "id_orig")
-        
+
         toto1 <- merge(toto, anim_id_pop, by = "id_orig")
-        toto2 <- toto1 %>% 
+        toto2 <- toto1 %>%
           select(c("id_renum","sire","dam","anc1","anc2","anc3","anc4","anc5","anc6","anc7","pop","id_orig"))
-        
+
         males <- toto2 %>% filter(pop=="AISiresOfSires1"|pop=="AISiresOfSires2"|pop=="AISiresOfSires3")
         colnames(males) <- c("male_id","sire","dam","anc1","anc2","anc3","anc4","anc5","anc6","anc7","pop","male_id_orig")
-        
-        
+
+
         females <- toto2 %>% filter(pop=="damsOfSiresLact4"|pop=="damsOfSiresLact3"|pop=="damsOfSiresLact2"|pop=="damsOfSiresLact1")
         colnames(females) <- c("female_id","sire","dam","anc1","anc2","anc3","anc4","anc5","anc6","anc7","pop","female_id_orig")
-        
+
         # Initialize an empty list to store results
         matings <- list()
         for (i in 1:nrow(males)) {
@@ -1563,24 +1620,24 @@ if (scenarios) {
                   males[i, "male_id"] == females[j, "sire"] ||
                   (males[i, "sire"] != 0 && females[j, "sire"] != 0 && males[i, "sire"] == females[j, "sire"] &&
                    males[i, "dam"] != 0 && females[j, "dam"] != 0 && males[i, "dam"] == females[j, "dam"]))) {
-              
+
               # Extract ancestors starting from ancestor1
               male_ancestors <- unlist(replace(males[i, 4:10], is.na(males[i, 4:10]), 0))
               female_ancestors <- unlist(replace(females[j, 4:10], is.na(females[j, 4:10]), 0))
-              
+
             } else if ((males[i, "dam"] == females[j, "female_id"] ||
                         males[i, "male_id"] == females[j, "sire"] ||
                         (males[i, "sire"] != 0 && females[j, "sire"] != 0 && males[i, "sire"] == females[j, "sire"] &&
                          males[i, "dam"] != 0 && females[j, "dam"] != 0 && males[i, "dam"] == females[j, "dam"]))) {
-              
+
               # Set ancestors to 'A'
               male_ancestors <- rep('A', 7)
               female_ancestors <- rep('A', 7)
             }
-            
+
             # Find common ancestors
             common <- intersect(male_ancestors, female_ancestors)
-            
+
             # Create row data frame
             row <- data.frame(
               male_id = males[i, "male_id"],
@@ -1596,22 +1653,21 @@ if (scenarios) {
               common_ancestor7 = ifelse(length(common) >= 7, common[7], "0"),
               stringsAsFactors = FALSE
             )
-            
+
             # Append row to matings list
             matings <- c(matings, list(row))
           }
         }
-        
+
         # Combine all rows into a single data frame
         matings <- do.call(rbind, matings)
         # Read the BLUP solutions file
         blup_sol <- read.table(file = "solutions", skip = 1)
-        
+
         # Extract IDL information for animals (assuming effect number is 12)
         idl_ind <- blup_sol %>%
           filter(V2 == 12) %>%  # Change effect number to your animal effect number if different
           select(id_renum = V3, IDL = V4)
-        
         # Initialize IDL columns in matings
         # if (!is.data.frame(matings)) {
         #   matings <- as.data.frame(matings)
@@ -1624,13 +1680,13 @@ if (scenarios) {
         matings$IDL5 <- -100000
         matings$IDL6 <- -100000
         matings$IDL7 <- -100000
-        
+
         # Define idl_cols as a vector of IDL column names
         idl_cols <- paste0("IDL", 1:7)
-        
+
         # Identify indices where common_ancestor1 is not 'A'
         non_A_indices <- matings$common_ancestor1 != "A"
-        
+
         # Check if there are any such indices
         if (any(non_A_indices)) {
           # Merge IDL information into the matings data frame for all common ancestors
@@ -1646,62 +1702,68 @@ if (scenarios) {
             matings[[idl_cols[i]]][non_A_indices] <- idl_ind$IDL[match(matings[[paste0("common_ancestor", i)]][non_A_indices], idl_ind$id_renum)]
           }
         }
-        
-        
+
+
         # Replace NA with 0 for consistency
         matings[is.na(matings)] <- 0
-        
+
         # Calculate total IDL
         matings_idl <- matings %>% transmute(male_id_orig,female_id_orig,total_idl = IDL1 + IDL2 + IDL3 + IDL4 + IDL5 + IDL6 + IDL7)
-        
+
         matings_idl$total_idl[matings_idl$total_idl == 0] <- 100000
         write.table(matings_idl, 'matings_idl.txt')
         #matings_idl = matings %>% select('male_id','female_id','total_idl')
         obj.fun.expIDL <- matings_idl[,3]
-        
+
         save.image(file = "scenario1.RData")
-        
+
         # nAISiresOfSires <- 30  ##number of males
         # nDamsOfSires <- 3000 ##optimise females, see parameters above
-        
+
         nfpm <- nDamsOfSires/nAISiresOfSires ##(nfemales/nmales) #number of females per male (ratio)
         total_matings <- nDamsOfSires  #total number of matings equal to number of females
-        
+
         constr.expIDL <- matrix(0, nDamsOfSires+nAISiresOfSires, nDamsOfSires*nAISiresOfSires)
-        
+
         for(i in 1:nAISiresOfSires){
           for(j in 1:nDamsOfSires){
             constr.expIDL[i, nDamsOfSires*(i-1) + j] <- 1
             constr.expIDL[nAISiresOfSires+j, nDamsOfSires*(i-1) + j] <- 1
           }
         }
-        
+
         ## adding constraints for number of matings equal to nfemales
-        constr.expIDL <- rbind(constr.expIDL,rep(1,nDamsOfSires*nAISiresOfSires)) 
-        
+        constr.expIDL <- rbind(constr.expIDL,rep(1,nDamsOfSires*nAISiresOfSires))
+
         ## adding direction at the end related to number of females to mate.
-        constr.expIDL.dir <- c(rep("<=", nAISiresOfSires), rep("<=", nDamsOfSires),"=") 
-        
+        constr.expIDL.dir <- c(rep("<=", nAISiresOfSires), rep("<=", nDamsOfSires),"=")
+
         ### adding constraint at the end related at the maximun number of females to mate.
-        rhs.expIDL <- c(rep(nfpm, nAISiresOfSires), rep(1, nDamsOfSires), total_matings) 
-        
+        rhs.expIDL <- c(rep(nfpm, nAISiresOfSires), rep(1, nDamsOfSires), total_matings)
+
         #MINIMIZING EXPECTED IDL
         time <- proc.time()
+        set.seed(123)  # For reproducibility
+        options(scipen = 999)
+        epsilon <- 1e-6  # Small value for perturbation
+        random_factors <- 1 + runif(length(obj.fun.expIDL), -epsilon, epsilon)
+
+        obj.fun.expIDL.perturbed <- obj.fun.expIDL * random_factors
         save.image(file = "scenario2.RData")
-        
-        optim.expIDL <- lp("max", obj.fun.expIDL, 
-                           constr.expIDL, constr.expIDL.dir, rhs.expIDL, 
+
+        optim.expIDL <- lp("max", obj.fun.expIDL.perturbed,
+                           constr.expIDL, constr.expIDL.dir, rhs.expIDL,
                            compute.sens = TRUE, all.bin=TRUE)
         print("optimization consumption time")
-        
+
         proc.time() - time
-        
-        
+
+
         save.image(file = "scenario3.RData")
-        
+
         objval.expIDL <- optim.expIDL$objval #objective function value
         objval.expIDL
-        
+
         sol.expIDL.matrix <- matrix(optim.expIDL$solution, nAISiresOfSires, nDamsOfSires, byrow=TRUE) #decision variables values, solution vector
         sire <- matings_idl$male_id_orig
         dam = matings_idl$female_id_orig[1:3000]
@@ -1709,25 +1771,26 @@ if (scenarios) {
         rownames(sol.expIDL.matrix) <- sire[v]
         colnames(sol.expIDL.matrix) <- dam[1:nDamsOfSires]
         positions <- which(sol.expIDL.matrix == 1, arr.ind = TRUE)
-        
-        # Create the resulting data frame
+ # Create the resulting data frame
         matingPlan1_dataframe <- data.frame(
           Sire = rownames(sol.expIDL.matrix)[positions[, 1]],
           Dam = colnames(sol.expIDL.matrix)[positions[, 2]]
         )
-        
+
         write.table(matingPlan1_dataframe, 'matingPlan1_dataframe')
         matingPlan1_dataframe <- matingPlan1_dataframe[, c("Dam", "Sire")]
-        
+
         # Convert the reordered data frame to a matrix
         matingPlan1 <- as.matrix(matingPlan1_dataframe)
-        
+
         # Remove row and column names
         rownames(matingPlan1) <- NULL
         colnames(matingPlan1) <- NULL
-        
+
       }
     }
+
+
     n = nLambsFromAISiresOfSires - nDamsOfSires
     damsOfDamsId = damsOfDams@id
     damsOfDamsIdForElite = sample(damsOfDamsId, size = n)
