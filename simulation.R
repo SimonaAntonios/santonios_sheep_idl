@@ -199,7 +199,7 @@ genInt              = 4                                                         
 BaseNe              = 150                                                          # effective population size
 nChr                = 26                                                           # no. of chromosomes
 ChrSize             = 95 * 1e6                                                     # chr. size
-nQTL                = 251                                                          # no. of QTLs of MY,  4500 QTL for the 272 base traits
+nQTL                = 239                                                          # no. of QTLs of MY,  4500 QTL for the 272 base traits
 nQTLPerChr          = round(nQTL / nChr)                                           # no. of QTLs per chromosome
 nSNPPerChr          = 4000                                                         # no. of markers per chromosome
 RecRate             = 1.3e-8                                                       # recombination rate
@@ -231,19 +231,19 @@ nTmp1 = c(nDamsOfDamsLact1, nDamsOfDamsLact2, nDamsOfDamsLact3, nDamsOfDamsLact4
 nTmp2 = c(nDamsOfSiresLact1, nDamsOfSiresLact2, nDamsOfSiresLact3, nDamsOfSiresLact4)
 meanLactAll = sum(c(nTmp1 * meanLact, nTmp2 * meanLact)) / nFemalesInLactation
 
-varScale = 1 #0.5                                                                     # downscale variances to get mostly positive phenotypes
+varScale = 0.5                                                                     # downscale variances to get mostly positive phenotypes
 yearVar             = 1000 * varScale                                              # year variance
-herdVar             = 1500 * varScale                                              # herd variance
+herdVar             = 1200 * varScale                                              # herd variance
 herdYearVar         = 1000 * varScale                                              # herd-year variance
-# addVar            = 1200 * varScale                                              # additive genetic variance
-addVar              = 1000 * varScale                                              # additive genetic variance
+addVar              = 1200 * varScale                                              # additive genetic variance
+# addVar              = 1000 * varScale                                              # additive genetic variance
 # permVar           = 500 * varScale                                               # permanent environmental variance
 permVar             = 400 * varScale # 500 (Old value) - 100 = 400 (new value)     # permanent environmental variance (we started with old, 100 was targeted domVar)
 resVar              = 1500 * varScale                                              # residual variance
 domVar              = addVar * 0.1                                                 # dominance variance
 fullInbreedDepress  = 70                                                           # depression with complete inbreeding
-meanDD              = 0.46                                                         # dominance parameters - see use of altAddTraitAD() below
-varDD               = 0.10                                                         # dominance parameters - see use of altAddTraitAD() below
+meanDD              = 0.48                                                         # dominance parameters - see use of altAddTraitAD() below
+varDD               = 0.06                                                         # dominance parameters - see use of altAddTraitAD() below
 idlVar              = 12923.0 * varScale
 corrIDLAdd          = -0.1
 covIDLAdd           = corrIDLAdd*(addVar*idlVar)^0.5
@@ -265,7 +265,7 @@ if (FALSE) {
 }
 
 nBurninYears        = 10                                                           # no. of years for burnin
-nScenarioYears      = 10                                                           # no. of years for scenarios
+nScenarioYears      = 15                                                           # no. of years for scenarios
 
 # ---- Working directory -------------------------------------------------------
 
@@ -347,7 +347,7 @@ if (burnin) {
                         histNe = histNe,
                         histGen = histGen)
   # Save just the founderPop
-  # save(founderPop, file = "founderPop.RData")
+  save(founderPop, file = "founderPop.RData")
   # }
   # load("founderPop.RData")
   # load("../../founder_runMacs2.RData") # note that we are in rep_x/[burnin|scenario] folder at this stage
@@ -378,11 +378,11 @@ if (burnin) {
                   inbrDepr = fullInbreedDepress,
                   limMeanDD = c(-1, 2),
                   limVarDD = c(0, 2))
-    # New trait called Trait1 was added 
-    # Dominance variance is 49.96618 
-    # Inbreeding depression is 70.00227 
-    # Used meanDD equals 0.4635916  
-    # Used varDD equals 0.1049338 
+    # A new trait called Trait1 was added with  varScale = 0.5 and addVar = 1200 * varScale . 
+    # varD = 59.31778 
+    # inbrDepr = 70.01133 
+    # meanDD = 0.4783672 
+    # varDD = 0.05730109 
   }
   # ... and used these parameters here
   SP$addTraitAD(nQtlPerChr = nQTLPerChr, mean = 0, var = addVar, meanDD = meanDD, varDD = varDD)
@@ -847,6 +847,52 @@ if (burnin) {
       write.table(correlationEbvTbv, file = "calcAccuracyEbvVsTbv.txt", col.names = FALSE, row.names = FALSE, append = TRUE)
     }
     
+    inbreeding      = read.table('renf90.inb', header=F)
+    inbreeding$year = year
+    write.table(x = inbreeding, file = "inbreeding.txt", append = TRUE, col.names = FALSE)
+    
+    
+    animal_data = data.frame(year        = year,
+                             id_orig          = database$General$IId,
+                             pop         = database$General$Pop,
+                             YearOfBirth = database$General$YearOfBirth,
+                             EBV_IDL         = database$Ebv,
+                             GV          = database$Gv,
+                             TBV         = database$General$Tbv.Trait1
+    )
+    
+    animal_data = animal_data %>%
+      filter(pop != "AISiresOfSires", pop != "AISiresOfDams" )
+    
+    # YearOfBirth = as.numeric(unlist(database$General$YearOfBirth))
+    # animal_data$YearOfBirth =YearOfBirth
+    # print(head(animal_data))
+    #animal_data <- animal_data %>%
+    #	select(id_orig, pop, YearOfBirth, EBV_IDL, GV, TBV)
+    #animal_data <- animal_data[, c("year", "id_orig", "pop", "YearOfBirth", "EBV_IDL", "GV", "TBV")]
+    
+    write.table(x = animal_data, file = "animal_data.txt", append = TRUE, col.names = FALSE)
+    
+    animalData = data.frame(year        = year,
+                            id_orig     = c(AISiresOfSires3@id,AISiresOfSires2@id,AISiresOfSires1@id,AISiresOfDams3@id,AISiresOfDams2@id,AISiresOfDams1@id,wtRams2@id,wtRams1@id,NMSires@id,damsOfSiresLact4@id, damsOfSiresLact3@id,damsOfSiresLact2@id,damsOfSiresLact1@id,damsOfDamsLact4@id, damsOfDamsLact3@id,damsOfDamsLact2@id,damsOfDamsLact1@id,lambs@id),
+                            pop         = rep(c("AISiresOfSires3","AISiresOfSires2","AISiresOfSires1","AISiresOfDams3","AISiresOfDams2","AISiresOfDams1","wtRams2","wtRams1","NMSires","damsOfSiresLact4", "damsOfSiresLact3","damsOfSiresLact2","damsOfSiresLact1","damsOfDamsLact4", "damsOfDamsLact3","damsOfDamsLact2","damsOfDamsLact1","lambs"),
+                                              c(AISiresOfSires3@nInd,AISiresOfSires2@nInd,AISiresOfSires1@nInd,AISiresOfDams3@nInd,AISiresOfDams2@nInd,AISiresOfDams1@nInd,wtRams2@nInd,wtRams1@nInd,NMSires@nInd,damsOfSiresLact4@nInd, damsOfSiresLact3@nInd,damsOfSiresLact2@nInd,damsOfSiresLact1@nInd,damsOfDamsLact4@nInd, damsOfDamsLact3@nInd,damsOfDamsLact2@nInd,damsOfDamsLact1@nInd,lambs@nInd)),
+                            EBV_IDL     = c(AISiresOfSires3@ebv,AISiresOfSires2@ebv,AISiresOfSires1@ebv,AISiresOfDams3@ebv,AISiresOfDams2@ebv,AISiresOfDams1@ebv,wtRams2@ebv,wtRams1@ebv,NMSires@ebv,damsOfSiresLact4@ebv, damsOfSiresLact3@ebv,damsOfSiresLact2@ebv,damsOfSiresLact1@ebv,damsOfDamsLact4@ebv, damsOfDamsLact3@ebv,damsOfDamsLact2@ebv,damsOfDamsLact1@ebv,lambs@ebv),
+                            GV          = c(AISiresOfSires3@gv,AISiresOfSires2@gv,AISiresOfSires1@gv,AISiresOfDams3@gv,AISiresOfDams2@gv,AISiresOfDams1@gv,wtRams2@gv,wtRams1@gv,NMSires@gv,damsOfSiresLact4@gv, damsOfSiresLact3@gv,damsOfSiresLact2@gv,damsOfSiresLact1@gv,damsOfDamsLact4@gv, damsOfDamsLact3@gv,damsOfDamsLact2@gv,damsOfDamsLact1@gv,lambs@gv),
+                            TBV         = c(bv(AISiresOfSires3),bv(AISiresOfSires2),bv(AISiresOfSires1),bv(AISiresOfDams3),bv(AISiresOfDams2),bv(AISiresOfDams1),bv(wtRams2),bv(wtRams1),bv(NMSires),bv(damsOfSiresLact4), bv(damsOfSiresLact3),bv(damsOfSiresLact2),bv(damsOfSiresLact1),bv(damsOfDamsLact4), bv(damsOfDamsLact3),bv(damsOfDamsLact2),bv(damsOfDamsLact1),bv(lambs)))
+    
+    write.table(x = animalData, file = "animalData.txt", append = TRUE, col.names = FALSE)
+    
+    solution = read.table('solutions.orig', skip=1)
+    solution$year = year
+    if (!file.exists('solutions.orig.year')) {
+      # If the file doesn't exist, write the column names along with the data
+      write.table(solution, file = "solutions.orig.year", col.names = TRUE, row.names = FALSE)
+    } else {
+      # If the file exists, append the data without writing column names
+      write.table(solution, file = "solutions.orig.year", col.names = FALSE, row.names = FALSE, append = TRUE)
+    }
+    
     # ---- Select rams ----
     # ---- ...   AI Sires Of Sires----
     
@@ -896,9 +942,9 @@ if (burnin) {
     wtRams1 = selectInd(pop = wtRams1, nInd = nWtRams1,
                         use = use)
     
-    selAILambs = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
+    selNtlLambs = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
       !lambs@id %in% wtRams1@id
-    NMSires =  selectInd(pop = lambs[selAILambs], nInd = nNMSires,
+    NMSires =  selectInd(pop = lambs[selNtlLambs], nInd = nNMSires,
                          use = use, famType = "M", sex = "M")
     
     
@@ -922,7 +968,7 @@ if (burnin) {
     damsOfSiresLact4 = selectInd(damsOfSiresLact3, nInd = nDamsOfSiresLact4, use = use) # damsOfSiresLact4 are 4 years old here
     damsOfSiresLact3 = selectInd(damsOfSiresLact2, nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact3 are 3 years old here
     damsOfSiresLact2 = selectInd(damsOfSiresLact1, nInd = nDamsOfSiresLact2, use = use) # damsOfSiresLact2 are 2 years old here
-    damsOfSiresLact1 = selectInd(lambs[selAILambs], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
+    damsOfSiresLact1 = selectInd(lambs[selNtlLambs], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
     
     
     # Note that damsOfSires are in reality selected only from AI sires only, hence
@@ -1330,7 +1376,7 @@ if (scenarios) {
     
      
     
-  if (scenario =="std" || scenario =="EFI" || scenario == "EFI_all") {
+  if (scenario =="std" || scenario =="EFI" ) {
       correlationEbvTgv = data.frame(year = year,
                                      AISiresOfSires3 = calcAccuracyEbvVsTgv(AISiresOfSires3),
                                      AISiresOfSires2 = calcAccuracyEbvVsTgv(AISiresOfSires2),
@@ -1387,6 +1433,118 @@ if (scenarios) {
       write.table(x = correlationEbvTbv, file = "calcAccuracyEbvVsTbv.txt", append = TRUE , col.names = FALSE )
     }
     
+    # ---- Select rams ----
+    
+    # ---- ...   AI Sires Of Sires----
+    
+    cat("... AI Sire Of Siress", as.character(Sys.time()), "\n")
+    
+    AISiresOfSires3 = AISiresOfSires2 # AISiresOfSires3 are 4.5 years old here
+    AISiresOfSires2 = AISiresOfSires1 # AISiresOfSires2 are 3.5 years old here
+    
+    if ("scenario" %in% args) {
+      scenario <- args[grep("^scenario$", args) + 1]
+      # saving the solution of each year
+      
+      if (all(wtRams2@father == "0")) {
+        AISiresOfSires1 = selectInd(pop = wtRams2, nInd = nAISiresOfSires1, # AISiresOfSires1 are 3.5 years old here
+                                    use = use)
+      } else  {
+        if (scenario == "std" || scenario == "idl"|| scenario == "idl1" || scenario == "idl2" || scenario == "MA")  {
+          
+          
+          AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
+                                            use = use, famType = "M")
+          AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
+                                      use = use)
+        }
+        
+        else if ( scenario == "EFI"){
+          # -------------------------------------
+          # ---- AI sires of sires selection ----
+          # -------------------------------------
+          # collecting the id of the contemporary dams of sires and of the waiting rams 2
+          dams_of_sire <- data.frame(damsOfSires@iid)
+          wtrams2 <- data.frame(wtRams2@iid)
+          fwrite(dams_of_sire, "dam", col.names = FALSE)
+          fwrite(wtrams2, "sire", col.names = FALSE)
+          # calculating the relationship coefficient between the waiting rams and all the contemporary females
+          system(command = "ifort /save/user/santonios/bin/inbupgf90")
+          system(command = "/save/user/santonios/bin/inbupgf90 --pedfile pedigree.txt --sire_file sire --dam_file dam --nrmcoeff")
+          # reading the results of the inbupgf90, which represent all the possible combinations between the wtrams2 and the dams of sires 
+          # and with their expected future relationship coefficient.
+          nrmcoeff <- read.table('sire_dam.nrmcoeff')
+          colnames(nrmcoeff) <- c('sire', 'dam', 'coan_coef')
+          # summing the expected future relationship coefficient per sire
+          nrmcoeff_sum <- nrmcoeff %>% group_by(sire) %>% summarize(mean_coan=mean(coan_coef))
+          
+          wtram2_ebv <- data.frame(sire = wtRams2@iid, ebv = wtRams2@ebv)
+          # merging the ebv
+          nrmcoeff_sum_ebv <- merge(nrmcoeff_sum,wtram2_ebv,by="sire")
+          colnames(nrmcoeff_sum_ebv) <- c('sire', 'mean_coan', 'ebv')
+          # getting the inbreeding depression param (b)
+          sol <- read.table('solutions.orig', skip=1)
+          b <- as.numeric(tail(sol$V5, n=1))
+          # calculating EFI and the adjusted EBV
+          nrmcoeff_ebv_EFI_ebva <- nrmcoeff_sum_ebv %>%
+            dplyr::mutate(EFI = mean_coan / 2) %>%
+            dplyr::mutate(ebva = ebv + (EFI / 2) * b) %>%
+            dplyr::transmute(sire, mean_coan, ebv, EFI, ebva)  
+          
+          # to select the sires of sires 1 based on their adjusted EBV (ebva)
+          top_10_iid <- nrmcoeff_ebv_EFI_ebva %>%
+            arrange(desc(ebva)) %>%
+            slice_head(n = 10)
+          
+          # Find the indices of the individuals that match top_10_iid
+          indices <- which(wtRams2@iid %in% top_10_iid$sire)
+          
+          # Subset the individuals using the indices
+          AISiresOfSires1 <- wtRams2[indices]
+        }
+      }
+    }
+    
+    # ---- ... AI Sire Of Dams ----
+    
+    cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
+    
+    AISiresOfDams3 = AISiresOfDams2 # AISiresOfDams3 are 5.5 years old here
+    AISiresOfDams2 = AISiresOfDams1 # AISiresOfDams2 are 4.5 years old here
+    
+    if (all(wtRams2@father == "0")) {
+      sel = !wtRams2@id %in% AISiresOfSires1@id
+      AISiresOfDams1 = selectInd(pop = wtRams2[sel], nInd = nAISiresOfDams1, # AISiresOfDams1 are 3.5 years old here
+                                 use = use)
+    } else {
+      sel = !wtRams2@id %in% AISiresOfSires1@id
+      AISiresOfDams1 = selectWithinFam(pop = wtRams2[sel], nInd = 2, # AISiresOfDams1 are 3.5 years old here
+                                       use = use, famType = "M")
+      AISiresOfDams1 = selectInd(pop = AISiresOfDams1, nInd = nAISiresOfDams1,
+                                 use = use)
+    }
+    cat("Select rams\n")
+    
+    # ---- ... Selecting males from lambs ----
+    # Note that we select wtRams only from lambs from AI Sire Of Sires (not waiting rams) and Dams Of Sires
+    selWtRams = lambs@father %in% AISiresOfSires@id & lambs@mother %in% damsOfSires@id
+    n = ceiling(nWtRams1 / length(AISiresOfSires@id))
+    wtRams2 = wtRams1
+    wtRams1 = selectWithinFam(pop = lambs[selWtRams], nInd = n,
+                              use = use, famType = "M", sex = "M")
+    wtRams1 = selectInd(pop = wtRams1, nInd = nWtRams1,
+                        use = use)
+    
+    selAILambs = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
+      !lambs@id %in% wtRams1@id
+    NMSires =  selectInd(pop = lambs[selAILambs], nInd = nNMSires,
+                         use = use, famType = "M", sex = "M")
+    
+    
+    AISiresOfSires = c(AISiresOfSires3, AISiresOfSires2, AISiresOfSires1)
+    AISiresOfDams = c(AISiresOfDams3, AISiresOfDams2, AISiresOfDams1)
+    males = c(AISiresOfSires, AISiresOfDams, wtRams1, wtRams2, NMSires)
+    
     # ---- Select ewes ----
     
     cat("Select ewes\n")
@@ -1403,7 +1561,7 @@ if (scenarios) {
     damsOfSiresLact4 = selectInd(damsOfSiresLact3, nInd = nDamsOfSiresLact4, use = use) # damsOfSiresLact4 are 4 years old here
     damsOfSiresLact3 = selectInd(damsOfSiresLact2, nInd = nDamsOfSiresLact3, use = use) # damsOfSiresLact3 are 3 years old here
     damsOfSiresLact2 = selectInd(damsOfSiresLact1, nInd = nDamsOfSiresLact2, use = use) # damsOfSiresLact2 are 2 years old here
-    damsOfSiresLact1 = selectInd(lambs[selAILambs], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
+    damsOfSiresLact1 = selectInd(lambs[selNtlLambs], nInd = nDamsOfSiresLact1, use = use, sex = "F", famType = "M") # damsOfSiresLact1 are 1 years old here
     # Note that damsOfSires are in reality selected only from AI sires only, hence
     #   we should use selectInd(damsOfSiresLact3, ...), but if we select on EBV we
     #   should grab the best females anyway!
@@ -1446,116 +1604,6 @@ if (scenarios) {
     
     damsOfDams = c(damsOfDamsLact4, damsOfDamsLact3, damsOfDamsLact2, damsOfDamsLact1)
     females = c(damsOfSires, damsOfDams)
-    
-    # ---- Select rams ----
-    
-    # ---- ...   AI Sires Of Sires----
-    
-    cat("... AI Sire Of Siress", as.character(Sys.time()), "\n")
-    
-    AISiresOfSires3 = AISiresOfSires2 # AISiresOfSires3 are 4.5 years old here
-    AISiresOfSires2 = AISiresOfSires1 # AISiresOfSires2 are 3.5 years old here
-    
-if ("scenario" %in% args) {
-      scenario <- args[grep("^scenario$", args) + 1]
-      # saving the solution of each year
-
-        if (all(wtRams2@father == "0")) {
-          AISiresOfSires1 = selectInd(pop = wtRams2, nInd = nAISiresOfSires1, # AISiresOfSires1 are 3.5 years old here
-                                      use = use)
-        }
-      else  {
-          if (scenario == "std" || scenario == "idl"|| scenario == "idl1" || scenario == "idl2" || scenario == "MA")  {
-
-
-          AISiresOfSires1 = selectWithinFam(pop = wtRams2, nInd = 1, # AISiresOfSires1 are 3.5 years old here
-                                            use = use, famType = "M")
-          AISiresOfSires1 = selectInd(pop = AISiresOfSires1, nInd = nAISiresOfSires1,
-                                      use = use)
-        }
-
-      else if (scenario == "EFI_all" || scenario == "EFI"){
-        # -------------------------------------
-        # ---- AI sires of sires selection ----
-        # -------------------------------------
-        # collecting the id of the contemporary dams of sires and of the waiting rams 2
-        dams_of_sire <- data.frame(damsOfSires@iid)
-        wtrams2 <- data.frame(wtRams2@iid)
-        fwrite(dams_of_sire, "dam", col.names = FALSE)
-        fwrite(wtrams2, "sire", col.names = FALSE)
-        # calculating the relationship coefficient between the waiting rams and all the contemporary females
-        system(command = "ifort /save/user/santonios/bin/inbupgf90")
-        system(command = "/save/user/santonios/bin/inbupgf90 --pedfile pedigree.txt --sire_file sire --dam_file dam --nrmcoeff")
-        # reading the results of the inbupgf90, which represent all the possible combinations between the wtrams2 and the dams of sires 
-        # and with their expected future relationship coefficient.
-        nrmcoeff <- read.table('sire_dam.nrmcoeff')
-        colnames(nrmcoeff) <- c('sire', 'dam', 'coan_coef')
-        # summing the expected future relationship coefficient per sire
-        nrmcoeff_sum <- nrmcoeff %>% group_by(sire) %>% summarize(mean_coan=mean(coan_coef))
-
-        wtram2_ebv <- data.frame(sire = wtRams2@iid, ebv = wtRams2@ebv)
-        # merging the ebv
-        nrmcoeff_sum_ebv <- merge(nrmcoeff_sum,wtram2_ebv,by="sire")
-        colnames(nrmcoeff_sum_ebv) <- c('sire', 'mean_coan', 'ebv')
-        # getting the inbreeding depression param (b)
-        sol <- read.table('solutions.orig', skip=1)
-        b <- tail(sol$V5, n=1)
-        # calculating EFI and the adjusted EBV
-        nrmcoeff_ebv_EFI_ebva <- nrmcoeff_sum_ebv%>%transmute(sire, mean_coan, ebv, EFI=mean_coan/2, ebva=ebv + (mean_coan / 2) * b)
-
-        # to select the sires of sires 1 based on their adjusted EBV (ebva)
-        top_10_iid <- nrmcoeff_ebv_EFI_ebva %>%
-          arrange(desc(ebva)) %>%
-          slice_head(n = 10)
-
-        # Find the indices of the individuals that match top_10_iid
-        indices <- which(wtRams2@iid %in% top_10_iid$sire)
-
-        # Subset the individuals using the indices
-        AISiresOfSires1 <- wtRams2[indices]
-      }
-        }
-    }
-
-    # ---- ... AI Sire Of Dams ----
-    
-    cat("... AI Sire Of Dams", as.character(Sys.time()), "\n")
-    
-    AISiresOfDams3 = AISiresOfDams2 # AISiresOfDams3 are 5.5 years old here
-    AISiresOfDams2 = AISiresOfDams1 # AISiresOfDams2 are 4.5 years old here
-    
-    if (all(wtRams2@father == "0")) {
-      sel = !wtRams2@id %in% AISiresOfSires1@id
-      AISiresOfDams1 = selectInd(pop = wtRams2[sel], nInd = nAISiresOfDams1, # AISiresOfDams1 are 3.5 years old here
-                                 use = use)
-    } else {
-      sel = !wtRams2@id %in% AISiresOfSires1@id
-      AISiresOfDams1 = selectWithinFam(pop = wtRams2[sel], nInd = 2, # AISiresOfDams1 are 3.5 years old here
-                                       use = use, famType = "M")
-      AISiresOfDams1 = selectInd(pop = AISiresOfDams1, nInd = nAISiresOfDams1,
-                                 use = use)
-    }
-    cat("Select rams\n")
-    
-    # ---- ... Selecting males from lambs ----
-    # Note that we select wtRams only from lambs from AI Sire Of Sires (not waiting rams) and Dams Of Sires
-    selWtRams = lambs@father %in% AISiresOfSires@id & lambs@mother %in% damsOfSires@id
-    n = ceiling(nWtRams1 / length(AISiresOfSires@id))
-    wtRams2 = wtRams1
-    wtRams1 = selectWithinFam(pop = lambs[selWtRams], nInd = n,
-                              use = use, famType = "M", sex = "M")
-    wtRams1 = selectInd(pop = wtRams1, nInd = nWtRams1,
-                        use = use)
-    
-    selAILambs = lambs@father %in% c(AISiresOfSires@id, AISiresOfDams@id) &
-      !lambs@id %in% wtRams1@id
-    NMSires =  selectInd(pop = lambs[selAILambs], nInd = nNMSires,
-                         use = use, famType = "M", sex = "M")
-    
-    
-    AISiresOfSires = c(AISiresOfSires3, AISiresOfSires2, AISiresOfSires1)
-    AISiresOfDams = c(AISiresOfDams3, AISiresOfDams2, AISiresOfDams1)
-    males = c(AISiresOfSires, AISiresOfDams, wtRams1, wtRams2, NMSires)
     
     # ---- Generate lambs ----
     
@@ -1715,7 +1763,7 @@ datafile <- read.table(file="renadd05.ped", col.names = c("id_renum","sire","dam
         #matings_idl = matings %>% select('male_id','female_id','total_idl')
         obj.fun.expIDL <- matings_idl[,3]
 
-        save.image(file = "scenario1.RData")
+        # save.image(file = "scenario1.RData")
 
         # nAISiresOfSires <- 30  ##number of males
         # nDamsOfSires <- 3000 ##optimise females, see parameters above
@@ -1749,7 +1797,7 @@ datafile <- read.table(file="renadd05.ped", col.names = c("id_renum","sire","dam
         random_factors <- 1 + runif(length(obj.fun.expIDL), -epsilon, epsilon)
 
         obj.fun.expIDL.perturbed <- obj.fun.expIDL * random_factors
-        save.image(file = "scenario2.RData")
+        # save.image(file = "scenario2.RData")
 
         optim.expIDL <- lp("max", obj.fun.expIDL.perturbed,
                            constr.expIDL, constr.expIDL.dir, rhs.expIDL,
@@ -1759,7 +1807,7 @@ datafile <- read.table(file="renadd05.ped", col.names = c("id_renum","sire","dam
         proc.time() - time
 
 
-        save.image(file = "scenario3.RData")
+        # save.image(file = "scenario3.RData")
 
         objval.expIDL <- optim.expIDL$objval #objective function value
         objval.expIDL
