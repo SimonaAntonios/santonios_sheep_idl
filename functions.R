@@ -319,12 +319,12 @@ estimateBreedingValues = function(pedigree, database,
   sink()
   
   # ---- Run the command ----
-  system(command = "echo renum.par | /save/user/alegarra/blupf90/bin/renumf90 | tee renum.log")
+  system(command = "echo renum.par | ~/work/santonios/santonios/part3/simulation/programs/renumf90 | tee renum.log")
   system("/work/user/santonios/santonios/santonios/part3/simulation/programs/include_F.awk renf90.inb renf90.dat > renf90.dat.inb")
   # Functions to update BLUPF90 parameter file with the new one including the inbreeding
   # this function is to replace certain values and lines
   input_file <- "renf90.par"
-  output_file <- "updated_renf90.par.inb"
+  output_file <- "renf90.par.inb"
   
   # Define replacements as a list of old and new lines
   replacements <- list(
@@ -336,7 +336,7 @@ estimateBreedingValues = function(pedigree, database,
   
   ReplacingValuesRenf90(input_file, output_file, replacements)
   
-  system(command = "echo renf90.par.inb | /save/user/alegarra/blupf90/bin/blupf90+ | tee blup.log")
+  system(command = "echo renf90.par.inb | ~/work/santonios/santonios/part3/simulation/programs/blupf90+ | tee blup.log")
   
   # ---- Read in the solutions ----
   blup_sol = read_table(file = "solutions.orig",
@@ -356,40 +356,7 @@ estimateBreedingValues = function(pedigree, database,
   return(ebv_ind)
 }
 
-# function to merge the partial inbreeeding coefficients files into one
-mergePartialInbreedingFiles <- function() {
-  # Create the AWK command to concatenate files, preserving the header
-  awkCommand <- 'awk \'NR == 1 {if (FNR == 1) print; next} FNR > 1 {print $0}\' PartialInbreeding.txt* > mergedPartialInbreeding.txt'
-  
-  # Print the awk command for inspection
-  print(awkCommand)
-  
-  # Execute the AWK command using system
-  result <- system(awkCommand, intern = TRUE)
-  
-  # Print the result to understand what happened
-  print(result)
-}
 
-ReplacingValuesRenf90 <- function(input_file, output_file, replacements) {
-  # Read the existing parameter file
-  parameters <- readLines(input_file)
-  
-  # Replace each old line with the corresponding new line
-  for (replacement in replacements) {
-    old_line <- replacement$old_line
-    new_line <- replacement$new_line
-    
-    # Find the index of the line to be replaced
-    line_to_replace_index <- which(parameters == old_line)
-    
-    # Replace the line with the new content
-    parameters[line_to_replace_index] <- new_line
-  }
-  
-  # Write the updated parameter file
-  writeLines(parameters, output_file)
-}
 
 
 # function to estimate EBV and IDL
@@ -515,8 +482,8 @@ estimateBV_IDL = function(pedigree, database,
   sink()
   
   # ---- Run the command ----
-  system(command = "echo renum.par | /save/user/alegarra/blupf90/bin/renumf90 | tee renum.log")
-  system(command = "echo renf90.par | /work/user/santonios/santonios/santonios/part3/simulation/sim_4scenarios/blupf90+ | tee blup.log")
+  system(command = "echo renum.par | ~/work/santonios/santonios/part3/simulation/programs/renumf90  | tee renum.log")
+  system(command = "echo renf90.par | ~/work/santonios/santonios/part3/simulation/programs/blupf90+ | tee blup.log")
   
   # We order and renumber the pedigree file with `renum_order_gen.awk `this program puts the parents preceded the progeny to calculate the partial inbreeding coefficients
   system("/work/user/santonios/santonios/santonios/part3/simulation/programs/renum_order_gen.awk pedigree.txt > pedigreeOrder.txt")
@@ -579,12 +546,23 @@ estimateBV_IDL = function(pedigree, database,
     for (replacement in replacements) {
       old_line <- replacement$old_line
       new_line <- replacement$new_line
-      
-      # Find the index of the line to be replaced
-      line_to_replace_index <- which(parameters == old_line)
-      
-      # Replace the line with the new content
-      parameters[line_to_replace_index] <- new_line
+
+      # Check if old_line is numeric-like (e.g., 600.00)
+      is_numeric_line <- suppressWarnings(!is.na(as.numeric(old_line)))
+      if (is_numeric_line) {
+        
+        # Flexible match for numbers with optional leading/trailing spaces
+        line_to_replace_index <- grep(paste0("^\\s*", old_line, "\\s*$"), parameters)
+      } else {
+        # Regular string matching with trimmed whitespace
+        
+        line_to_replace_index <- which(trimws(parameters) == trimws(old_line))
+      }
+            if (length(line_to_replace_index) > 0) {
+        parameters[line_to_replace_index] <- new_line
+      } else {
+        message(paste("Could not find line to replace:", old_line))
+      }
     }
     
     # Write the updated parameter file
@@ -600,12 +578,11 @@ estimateBV_IDL = function(pedigree, database,
     list(old_line = " renf90.dat", new_line = " renf90.dat.F"),
     list(old_line = "           6", new_line = "           14"),
     list(old_line = "     5", new_line = "     5  6"),
-    #  list(old_line =paste("   ", round(addVar, digits = 2),"    "), new_line =paste(round(addVar, digits = 2), round(covIDLAdd, digits = 2))),
-    list(old_line ="   1000.0    ", new_line =paste(round(addVar, digits = 2), round(covIDLAdd, digits = 2))),
-    list(old_line = "     6", new_line = "     13")
-    #list(old_line = "OPTION origID", new_line = "#OPTION origID"),
-    #list(old_line = "OPTION saveAinvOrig", new_line = "#OPTION saveAinvOrig")
-  )
+    list(
+      old_line = format(round(addVar, digits = 2), nsmall = 2),
+      new_line = paste(format(round(addVar, digits = 2), nsmall = 2), round(covIDLAdd, digits = 2))
+    ),
+    list(old_line = "     6", new_line = "     13"))
   
   ReplacingValuesRenf90(input_file, output_file, replacements)
   
@@ -638,12 +615,12 @@ estimateBV_IDL = function(pedigree, database,
       # paste("OPTION method VCE"),
       #paste("OPTION AIREML"),
       # paste("OPTION msg_FSPAK 10"),
-      paste("OPTION EM-REML -2000"),
+      # paste("OPTION EM-REML -2000"),
       # paste("OPTION maxrounds 1"),
       paste("OPTION use_yams"),
       paste("OPTION sol se")#,
       # paste("OPTION maxrounds 0"),
-      # parameters[(numberOfEffectsPosition + 20):length(parameters)]
+      # parameters[(numberOfEffectsPosition + 12):length(parameters)]
     )
     # Write the updated parameter file
     writeLines(updatedParameters, outputFile)
@@ -654,7 +631,7 @@ estimateBV_IDL = function(pedigree, database,
   outputFile <- "renf90.par.idl"
   
   updateRenf90Par(inputFile, outputFile)
-  system(command = "echo renf90.par.idl | /work/user/santonios/santonios/santonios/part3/simulation/sim_4scenarios/blupf90+ | tee blup.log")
+  system(command = "echo renf90.par.idl | ~/work/santonios/santonios/part3/simulation/programs/blupf90+ | tee blup.log")
   
   # this one i need to put it after running the fortran program and after merging the partial.txt because it will be used the next year (year+1) to 
   # determine the number of individuals in the pedigree of this year (year) that is considered previous year 
