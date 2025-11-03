@@ -247,8 +247,6 @@ varDD               = 0.06                                                      
 idlVar              = 12923.0 * varScale
 corrIDLAdd          = -0.1
 covIDLAdd           = corrIDLAdd*(addVar*idlVar)^0.5
-# TODO: how do we get this? Estimate from the data?
-#       https://github.com/SimonaAntonios/santonios_sheep_idl/issues/17
 # Based on these values we expect this phenotypic variance and ratios
 if (FALSE) {
   # "Full" peno variance (still missing lactation means!)
@@ -369,8 +367,6 @@ if (burnin) {
   #     global parameters
   if (FALSE) {
     source(file = "../../altAddTraitAD.R")
-    # TODO: check if dominance params change with scaled down variances
-    #       https://github.com/SimonaAntonios/santonios_sheep_idl/issues/18
     altAddTraitAD(nQtlPerChr = nQTLPerChr,
                   mean = meanLact1,
                   varA = addVar,
